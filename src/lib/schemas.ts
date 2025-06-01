@@ -1,3 +1,4 @@
+
 import { z } from 'zod';
 
 export const DataItemSchema = z.object({
@@ -8,3 +9,11 @@ export const DataItemSchema = z.object({
 });
 
 export type DataItemFormValues = z.infer<typeof DataItemSchema>;
+
+export const FaqItemSchema = z.object({
+  id: z.string().optional(),
+  question: z.string().min(5, { message: "Question must be at least 5 characters." }).max(200, { message: "Question must be 200 characters or less." }),
+  answer: z.string().min(10, { message: "Answer must be at least 10 characters." }).max(1000, { message: "Answer must be 1000 characters or less." }),
+});
+
+export type FaqItemFormValues = z.infer<typeof FaqItemSchema>;

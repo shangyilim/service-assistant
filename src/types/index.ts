@@ -1,3 +1,4 @@
+
 export interface DataItem {
   id: string;
   name: string;
@@ -11,4 +12,10 @@ export interface User {
   name?: string | null;
   email?: string | null;
   avatarUrl?: string | null;
+}
+
+export interface FaqItem {
+  id: string;
+  question: string;
+  answer: string;
 }

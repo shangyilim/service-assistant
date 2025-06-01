@@ -1,3 +1,4 @@
+
 "use client";
 
 import { Logo } from '@/components/common/logo';
@@ -7,6 +8,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { Button } from '../ui/button';
 import { Sun, Moon } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { SidebarTrigger } from '@/components/ui/sidebar';
 
 
 export function PageHeader() {
@@ -39,13 +41,21 @@ export function PageHeader() {
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
   };
 
-  if (!mounted) return null;
+  if (!mounted) {
+    // Return a basic structure or null to prevent layout shift, 
+    // but ensure it doesn't cause hydration errors by being different from server.
+    // For a sticky header, it's often better to return a placeholder of similar height or null.
+    return null; 
+  }
 
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <Logo />
+        <div className="flex items-center gap-3">
+          <SidebarTrigger />
+          <Logo />
+        </div>
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label="Toggle theme">
             {theme === 'light' ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}

@@ -17,3 +17,13 @@ export const FaqItemSchema = z.object({
 });
 
 export type FaqItemFormValues = z.infer<typeof FaqItemSchema>;
+
+export const AppointmentItemSchema = z.object({
+  id: z.string().optional(),
+  title: z.string().min(3, { message: "Title must be at least 3 characters." }).max(100, { message: "Title must be 100 characters or less." }),
+  dateTime: z.string().min(5, { message: "Date & Time is required." }).max(50, {message: "Date & Time must be 50 characters or less."}), // Example: "2023-10-26 14:30"
+  location: z.string().max(100, { message: "Location must be 100 characters or less." }).optional().or(z.literal('')),
+  notes: z.string().max(1000, { message: "Notes must be 1000 characters or less." }).optional().or(z.literal('')),
+});
+
+export type AppointmentItemFormValues = z.infer<typeof AppointmentItemSchema>;

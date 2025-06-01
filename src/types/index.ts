@@ -19,3 +19,11 @@ export interface FaqItem {
   question: string;
   answer: string;
 }
+
+export interface AppointmentItem {
+  id: string;
+  title: string;
+  dateTime: string; // e.g., "2024-07-30 14:00"
+  location?: string;
+  notes?: string;
+}

@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { useAuth } from '@/hooks/use-auth';
 import { PageHeader } from '@/components/common/page-header';
 import { Logo } from '@/components/common/logo';
-import { Loader2, Home, HelpCircle } from 'lucide-react';
+import { Loader2, Home, HelpCircle, CalendarDays } from 'lucide-react';
 import {
   SidebarProvider,
   Sidebar,
@@ -77,6 +77,18 @@ export default function DashboardLayout({
                 <Link href="/dashboard/faqs">
                   <HelpCircle />
                   FAQs
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                asChild
+                isActive={pathname === '/dashboard/appointments'}
+                tooltip="Appointments"
+              >
+                <Link href="/dashboard/appointments">
+                  <CalendarDays />
+                  Appointments
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>

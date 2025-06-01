@@ -1,6 +1,7 @@
+
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import type { DataItem } from "@/types";
 import { DataItemFormValues } from "@/lib/schemas";
 import {
@@ -21,7 +22,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { DataFormDialog } from "./data-form-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { MoreHorizontal, PlusCircle, Trash2, Edit3, UploadCloud, Search } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Trash2, Edit3, UploadCloud, Search, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   AlertDialog,
@@ -34,41 +35,90 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-const initialData: DataItem[] = [
-  { id: "1", name: "Alpha Widget", value: 150, category: "Widgets" },
-  { id: "2", name: "Beta Gadget", value: 275, category: "Gadgets" },
-  { id: "3", name: "Gamma Gizmo", value: 99, category: "Gizmos" },
-  { id: "4", name: "Delta Device", value: 420, category: "Devices" },
-];
+// Firebase imports
+import { db } from "@/lib/firebase";
+import { useAuth } from "@/hooks/use-auth";
+import {
+  collection,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  doc,
+  query,
+  onSnapshot,
+  orderBy,
+} from "firebase/firestore";
 
 export function DataTableClient() {
-  const [data, setData] = useState<DataItem[]>(initialData);
+  const [data, setData] = useState<DataItem[]>([]);
+  const [isLoadingData, setIsLoadingData] = useState(true);
   const [editingItem, setEditingItem] = useState<DataItem | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [itemToDelete, setItemToDelete] = useState<DataItem | null>(null);
   const { toast } = useToast();
+  const { user, loading: authLoading } = useAuth();
 
-  const handleSaveItem = (formValues: DataItemFormValues) => {
-    if (editingItem) {
-      // Edit existing item
-      setData(prevData =>
-        prevData.map(item =>
-          item.id === editingItem.id ? { ...item, ...formValues, id: item.id } : item
-        )
-      );
-      toast({ title: "Success", description: "Item updated successfully." });
-    } else {
-      // Add new item
-      const newItem: DataItem = {
-        ...formValues,
-        id: Date.now().toString(), // Simple ID generation
-      };
-      setData(prevData => [newItem, ...prevData]);
-      toast({ title: "Success", description: "Item added successfully." });
+  const dataItemsCollectionRef = useMemo(() => {
+    if (!user) return null;
+    return collection(db, "users", user.id, "dataItems");
+  }, [user]);
+
+  useEffect(() => {
+    if (!dataItemsCollectionRef) {
+      setData([]);
+      setIsLoadingData(false); // Stop loading if no collection ref (e.g., user logged out)
+      return;
     }
-    setEditingItem(null);
-    setIsFormOpen(false);
+
+    setIsLoadingData(true);
+    const q = query(dataItemsCollectionRef, orderBy("name"));
+    const unsubscribe = onSnapshot(q, 
+      (querySnapshot) => {
+        const items = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+        } as DataItem));
+        setData(items);
+        setIsLoadingData(false);
+      }, 
+      (error) => {
+        console.error("Error fetching data items: ", error);
+        toast({ title: "Error", description: "Could not fetch data items.", variant: "destructive" });
+        setIsLoadingData(false);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [dataItemsCollectionRef, toast]);
+
+  const handleSaveItem = async (formValues: DataItemFormValues) => {
+    if (!dataItemsCollectionRef) {
+      toast({ title: "Error", description: "User not authenticated or collection not available.", variant: "destructive" });
+      return;
+    }
+
+    const dataToSave = {
+      name: formValues.name,
+      value: formValues.value,
+      category: formValues.category,
+    };
+
+    try {
+      if (editingItem && editingItem.id) {
+        const itemDocRef = doc(dataItemsCollectionRef, editingItem.id);
+        await updateDoc(itemDocRef, dataToSave);
+        toast({ title: "Success", description: "Item updated successfully." });
+      } else {
+        await addDoc(dataItemsCollectionRef, dataToSave);
+        toast({ title: "Success", description: "Item added successfully." });
+      }
+      setEditingItem(null);
+      setIsFormOpen(false);
+    } catch (error) {
+      console.error("Error saving item: ", error);
+      toast({ title: "Error", description: "Could not save item.", variant: "destructive" });
+    }
   };
 
   const openEditDialog = (item: DataItem) => {
@@ -85,11 +135,19 @@ export function DataTableClient() {
     setItemToDelete(item);
   };
 
-  const handleDeleteItem = () => {
-    if (!itemToDelete) return;
-    setData(prevData => prevData.filter(item => item.id !== itemToDelete.id));
-    toast({ title: "Success", description: `Item "${itemToDelete.name}" deleted.` });
-    setItemToDelete(null);
+  const handleDeleteItem = async () => {
+    if (!itemToDelete || !itemToDelete.id || !dataItemsCollectionRef) return;
+
+    try {
+      const itemDocRef = doc(dataItemsCollectionRef, itemToDelete.id);
+      await deleteDoc(itemDocRef);
+      toast({ title: "Success", description: `Item "${itemToDelete.name}" deleted.` });
+      setItemToDelete(null);
+    } catch (error) {
+      console.error("Error deleting item: ", error);
+      toast({ title: "Error", description: "Could not delete item.", variant: "destructive" });
+      setItemToDelete(null);
+    }
   };
 
   const filteredData = useMemo(() => {
@@ -100,6 +158,14 @@ export function DataTableClient() {
     );
   }, [data, searchTerm]);
 
+  if (authLoading) { // Auth is primary loading state
+    return (
+      <div className="container mx-auto py-8 px-4 sm:px-6 lg:px-8 flex justify-center items-center h-[calc(100vh-200px)]">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      </div>
+    );
+  }
+  
   return (
     <div className="container mx-auto py-8 px-4 sm:px-6 lg:px-8">
       <Card className="shadow-lg">
@@ -124,7 +190,7 @@ export function DataTableClient() {
           </div>
         </CardHeader>
         <CardContent>
-          {isFormOpen && ( // Conditionally render dialog instead of using DialogTrigger to control open state
+          {isFormOpen && (
             <DataFormDialog
               item={editingItem}
               onSave={handleSaveItem}
@@ -143,7 +209,16 @@ export function DataTableClient() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredData.length > 0 ? (
+                {isLoadingData ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="h-24 text-center">
+                      <div className="flex justify-center items-center">
+                        <Loader2 className="h-6 w-6 animate-spin text-primary mr-2" />
+                        Loading data...
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : filteredData.length > 0 ? (
                   filteredData.map(item => (
                     <TableRow key={item.id} className="hover:bg-muted/50 transition-colors">
                       <TableCell className="font-medium">{item.name}</TableCell>
@@ -179,7 +254,7 @@ export function DataTableClient() {
               </TableBody>
             </Table>
           </div>
-          {filteredData.length === 0 && searchTerm === "" && (
+          {!isLoadingData && filteredData.length === 0 && searchTerm === "" && (
              <div className="text-center py-10">
                 <UploadCloud className="mx-auto h-12 w-12 text-muted-foreground" data-ai-hint="data placeholder" />
                 <h3 className="mt-2 text-sm font-medium text-foreground">No data items yet</h3>

@@ -1,6 +1,7 @@
+
 "use client";
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { SignInButton } from '@/components/auth/sign-in-button';
@@ -11,12 +12,17 @@ import { Loader2 } from 'lucide-react';
 export default function LoginPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const [year, setYear] = useState<number | null>(null);
 
   useEffect(() => {
     if (!loading && user) {
       router.push('/dashboard');
     }
   }, [user, loading, router]);
+
+  useEffect(() => {
+    setYear(new Date().getFullYear());
+  }, []);
 
   if (loading || (!loading && user)) {
     return (
@@ -48,7 +54,7 @@ export default function LoginPage() {
         </CardContent>
       </Card>
        <footer className="mt-12 text-center text-sm text-muted-foreground">
-        © {new Date().getFullYear()} Data Weaver. All rights reserved.
+        {year ? `© ${year} Data Weaver. All rights reserved.` : 'Data Weaver. All rights reserved.'}
       </footer>
     </main>
   );

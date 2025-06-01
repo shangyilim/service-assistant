@@ -1,6 +1,7 @@
+
 "use client";
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { PageHeader } from '@/components/common/page-header';
@@ -13,12 +14,18 @@ export default function DashboardLayout({
 }) {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const [year, setYear] = useState<number | null>(null);
 
   useEffect(() => {
     if (!loading && !user) {
       router.push('/');
     }
   }, [user, loading, router]);
+  
+  useEffect(() => {
+    setYear(new Date().getFullYear());
+  }, []);
+
 
   if (loading || !user) {
     return (
@@ -35,7 +42,7 @@ export default function DashboardLayout({
         {children}
       </main>
        <footer className="py-6 text-center text-sm text-muted-foreground border-t">
-          © {new Date().getFullYear()} Data Weaver. Your data, woven with precision.
+          {year ? `© ${year} Data Weaver. Your data, woven with precision.` : 'Data Weaver. Your data, woven with precision.'}
         </footer>
     </div>
   );

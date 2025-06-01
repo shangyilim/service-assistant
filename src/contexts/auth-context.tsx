@@ -1,11 +1,20 @@
+
 "use client";
 
-import type { User } from '@/types';
+import type { User as AppUser } from '@/types'; // Renamed to avoid conflict with Firebase User
 import React, { createContext, useState, useEffect, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
+import { auth } from '@/lib/firebase'; // Import Firebase auth instance
+import { 
+  onAuthStateChanged, 
+  signInWithPopup, 
+  GoogleAuthProvider, 
+  signOut as firebaseSignOut, // Renamed to avoid conflict
+  type User as FirebaseUser // Type for Firebase user object
+} from 'firebase/auth';
 
 interface AuthContextType {
-  user: User | null;
+  user: AppUser | null;
   loading: boolean;
   signIn: () => Promise<void>;
   signOut: () => Promise<void>;
@@ -13,49 +22,58 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const MOCK_USER: User = {
-  id: 'mock-user-id',
-  name: 'Demo User',
-  email: 'demo@example.com',
-  avatarUrl: 'https://placehold.co/100x100.png'
-};
-
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
-    // Simulate checking auth state on mount
-    try {
-      const storedUser = localStorage.getItem('data-weaver-user');
-      if (storedUser) {
-        setUser(JSON.parse(storedUser));
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser: FirebaseUser | null) => {
+      if (firebaseUser) {
+        const appUser: AppUser = {
+          id: firebaseUser.uid,
+          name: firebaseUser.displayName,
+          email: firebaseUser.email,
+          avatarUrl: firebaseUser.photoURL,
+        };
+        setUser(appUser);
+      } else {
+        setUser(null);
       }
-    } catch (error) {
-      console.error("Failed to parse user from localStorage", error);
-      localStorage.removeItem('data-weaver-user');
-    }
-    setLoading(false);
+      setLoading(false);
+    });
+
+    // Cleanup subscription on unmount
+    return () => unsubscribe();
   }, []);
 
   const signIn = async () => {
     setLoading(true);
-    // Simulate Google Sign-In
-    await new Promise(resolve => setTimeout(resolve, 500));
-    setUser(MOCK_USER);
-    localStorage.setItem('data-weaver-user', JSON.stringify(MOCK_USER));
-    setLoading(false);
-    router.push('/dashboard');
+    const provider = new GoogleAuthProvider();
+    try {
+      await signInWithPopup(auth, provider);
+      // onAuthStateChanged will handle setting the user and navigating
+      // No need to manually push router here, as onAuthStateChanged will trigger a re-render
+      // and the login page/dashboard layout useEffects will handle redirection.
+    } catch (error) {
+      console.error("Firebase sign-in error:", error);
+      // You might want to show a toast notification to the user here
+      setLoading(false);
+    }
+    // setLoading(false) is managed by onAuthStateChanged or error cases
   };
 
   const signOut = async () => {
     setLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 300));
-    setUser(null);
-    localStorage.removeItem('data-weaver-user');
-    setLoading(false);
-    router.push('/');
+    try {
+      await firebaseSignOut(auth);
+      // onAuthStateChanged will handle clearing the user
+      router.push('/');
+    } catch (error) {
+      console.error("Firebase sign-out error:", error);
+      // You might want to show a toast notification to the user here
+    }
+    setLoading(false); // Ensure loading is set to false even if sign out fails for some reason
   };
 
   return (

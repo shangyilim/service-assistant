@@ -4,8 +4,8 @@ import { AuthProvider } from '@/contexts/auth-context';
 import { Toaster } from "@/components/ui/toaster";
 
 export const metadata: Metadata = {
-  title: 'Data Weaver',
-  description: 'Manage your data with ease.',
+  title: 'Service Assistant',
+  description: 'Manage your services with ease.',
 };
 
 export default function RootLayout({

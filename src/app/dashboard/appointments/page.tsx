@@ -3,7 +3,7 @@ import { AppointmentDataTableClient } from "@/components/dashboard/appointment-d
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Manage Appointments - Data Weaver',
+  title: 'Manage Appointments - Service Assistant',
   description: 'Schedule, view, and manage your appointments.',
 };
 

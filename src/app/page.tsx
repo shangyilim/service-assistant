@@ -37,11 +37,11 @@ export default function LoginPage() {
     <main className="flex min-h-screen flex-col items-center justify-center p-4 bg-gradient-to-br from-background to-secondary/30">
       <div className="flex flex-col items-center mb-8">
         <Logo className="text-primary mb-2" />
-        <p className="text-muted-foreground text-center">Welcome back! Sign in to manage your data.</p>
+        <p className="text-muted-foreground text-center">Welcome back! Sign in to manage your services.</p>
       </div>
       <Card className="w-full max-w-md shadow-xl">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-headline">Access Data Weaver</CardTitle>
+          <CardTitle className="text-2xl font-headline">Access Service Assistant</CardTitle>
           <CardDescription>
             Please sign in using your Google account to continue.
           </CardDescription>
@@ -54,7 +54,7 @@ export default function LoginPage() {
         </CardContent>
       </Card>
        <footer className="mt-12 text-center text-sm text-muted-foreground">
-        {year ? `© ${year} Data Weaver. All rights reserved.` : 'Data Weaver. All rights reserved.'}
+        {year ? `© ${year} Service Assistant. All rights reserved.` : 'Service Assistant. All rights reserved.'}
       </footer>
     </main>
   );

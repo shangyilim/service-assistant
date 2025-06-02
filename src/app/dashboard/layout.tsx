@@ -113,7 +113,7 @@ export default function DashboardLayout({
           {children}
         </main>
         <footer className="py-6 text-center text-sm text-muted-foreground border-t bg-background">
-          {year ? `© ${year} Data Weaver. Your data, woven with precision.` : 'Data Weaver. Your data, woven with precision.'}
+          {year ? `© ${year} Service Assistant. Your services, assisted with precision.` : 'Service Assistant. Your services, assisted with precision.'}
         </footer>
       </SidebarInset>
     </SidebarProvider>

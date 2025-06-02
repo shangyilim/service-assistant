@@ -3,7 +3,7 @@ import { ServiceDataTableClient } from "@/components/dashboard/service-data-tabl
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Manage Services - Data Weaver',
+  title: 'Manage Services - Service Assistant',
   description: 'Define, view, and manage your services.',
 };
 

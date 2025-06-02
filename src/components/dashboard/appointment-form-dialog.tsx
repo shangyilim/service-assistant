@@ -41,6 +41,8 @@ export function AppointmentFormDialog({ item, onSave, children, open, onOpenChan
     resolver: zodResolver(AppointmentItemSchema),
     defaultValues: item || {
       title: "",
+      name: "",
+      phoneNumber: "",
       dateTime: "",
       location: "",
       notes: "",
@@ -55,7 +57,7 @@ export function AppointmentFormDialog({ item, onSave, children, open, onOpenChan
         notes: item.notes || "",
       });
     } else {
-      form.reset({ title: "", dateTime: "", location: "", notes: "" });
+      form.reset({ title: "", name: "", phoneNumber: "", dateTime: "", location: "", notes: "" });
     }
   }, [item, form, open]);
 
@@ -88,9 +90,35 @@ export function AppointmentFormDialog({ item, onSave, children, open, onOpenChan
               name="title"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Title</FormLabel>
+                  <FormLabel>Appointment Title</FormLabel>
                   <FormControl>
-                    <Input placeholder="Appointment Title" {...field} />
+                    <Input placeholder="e.g., Consultation, Follow-up" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Client Name</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Enter client's full name" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="phoneNumber"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Client Phone Number</FormLabel>
+                  <FormControl>
+                    <Input type="tel" placeholder="e.g., (555) 123-4567" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

@@ -22,7 +22,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { AppointmentFormDialog } from "./appointment-form-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { MoreHorizontal, PlusCircle, Trash2, Edit3, Search, Loader2, CalendarDays, CalendarPlus } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Trash2, Edit3, Search, Loader2, CalendarDays, CalendarPlus, User, Phone } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   AlertDialog,
@@ -99,9 +99,11 @@ export function AppointmentDataTableClient() {
 
     const dataToSave = {
       title: formValues.title,
+      name: formValues.name,
+      phoneNumber: formValues.phoneNumber,
       dateTime: formValues.dateTime,
-      location: formValues.location || "", // Ensure empty string if undefined
-      notes: formValues.notes || "",     // Ensure empty string if undefined
+      location: formValues.location || "", 
+      notes: formValues.notes || "",     
     };
 
     try {
@@ -152,11 +154,14 @@ export function AppointmentDataTableClient() {
 
   const filteredAppointments = useMemo(() => {
     if (!appointmentSearchTerm) return appointments;
+    const lowerSearchTerm = appointmentSearchTerm.toLowerCase();
     return appointments.filter(item =>
-      item.title.toLowerCase().includes(appointmentSearchTerm.toLowerCase()) ||
-      (item.location && item.location.toLowerCase().includes(appointmentSearchTerm.toLowerCase())) ||
-      (item.notes && item.notes.toLowerCase().includes(appointmentSearchTerm.toLowerCase())) ||
-      item.dateTime.toLowerCase().includes(appointmentSearchTerm.toLowerCase())
+      item.title.toLowerCase().includes(lowerSearchTerm) ||
+      item.name.toLowerCase().includes(lowerSearchTerm) ||
+      item.phoneNumber.toLowerCase().includes(lowerSearchTerm) ||
+      (item.location && item.location.toLowerCase().includes(lowerSearchTerm)) ||
+      (item.notes && item.notes.toLowerCase().includes(lowerSearchTerm)) ||
+      item.dateTime.toLowerCase().includes(lowerSearchTerm)
     );
   }, [appointments, appointmentSearchTerm]);
 
@@ -207,17 +212,19 @@ export function AppointmentDataTableClient() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-1/4">Title</TableHead>
-                  <TableHead className="w-1/4">Date & Time</TableHead>
-                  <TableHead className="w-1/4">Location</TableHead>
-                  <TableHead className="w-1/4">Notes</TableHead>
+                  <TableHead className="w-[20%]">Title</TableHead>
+                  <TableHead className="w-[20%]"><User className="inline-block h-4 w-4 mr-1" />Client Name</TableHead>
+                  <TableHead className="w-[15%]"><Phone className="inline-block h-4 w-4 mr-1" />Phone</TableHead>
+                  <TableHead className="w-[15%]">Date & Time</TableHead>
+                  <TableHead className="w-[15%]">Location</TableHead>
+                  <TableHead className="w-[15%]">Notes</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoadingData ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="h-24 text-center">
+                    <TableCell colSpan={7} className="h-24 text-center">
                       <div className="flex justify-center items-center">
                         <Loader2 className="h-6 w-6 animate-spin text-primary mr-2" />
                         Loading appointments...
@@ -228,6 +235,8 @@ export function AppointmentDataTableClient() {
                   filteredAppointments.map(item => (
                     <TableRow key={item.id} className="hover:bg-muted/50 transition-colors">
                       <TableCell className="font-medium align-top">{item.title}</TableCell>
+                      <TableCell className="align-top">{item.name}</TableCell>
+                      <TableCell className="align-top">{item.phoneNumber}</TableCell>
                       <TableCell className="align-top">{item.dateTime}</TableCell>
                       <TableCell className="align-top whitespace-pre-wrap">{item.location || '-'}</TableCell>
                       <TableCell className="align-top whitespace-pre-wrap">{item.notes || '-'}</TableCell>
@@ -253,7 +262,7 @@ export function AppointmentDataTableClient() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+                    <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
                       {appointmentSearchTerm ? "No results found for your search." : "No appointments scheduled. Add new appointments to get started."}
                     </TableCell>
                   </TableRow>
@@ -281,7 +290,7 @@ export function AppointmentDataTableClient() {
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the appointment: "{appointmentItemToDelete?.title}".
+              This action cannot be undone. This will permanently delete the appointment for "{appointmentItemToDelete?.name}" titled "{appointmentItemToDelete?.title}".
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -24,6 +24,8 @@ export interface FaqItem {
 export interface AppointmentItem {
   id: string;
   title: string;
+  name: string; // Added client name
+  phoneNumber: string; // Added client phone number
   dateTime: string; // e.g., "2024-07-30 14:00"
   location?: string;
   notes?: string;
@@ -35,4 +37,3 @@ export interface ServiceItem {
   description: string;
   availability: boolean; // Changed from string to boolean
 }
-

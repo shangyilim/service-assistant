@@ -24,6 +24,7 @@ import { ServiceFormDialog } from "./service-form-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { MoreHorizontal, PlusCircle, Trash2, Edit3, Search, Loader2, Briefcase, Settings2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge"; // Import Badge for availability display
 import {
   AlertDialog,
   AlertDialogAction,
@@ -74,10 +75,15 @@ export function ServiceDataTableClient() {
     const q = query(servicesCollectionRef, orderBy("name")); 
     const unsubscribe = onSnapshot(q, 
       (querySnapshot) => {
-        const items = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-        } as ServiceItem));
+        const items = querySnapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            name: data.name,
+            description: data.description,
+            availability: typeof data.availability === 'boolean' ? data.availability : true, // Ensure boolean
+          } as ServiceItem;
+        });
         setServices(items);
         setIsLoadingData(false);
       }, 
@@ -100,7 +106,7 @@ export function ServiceDataTableClient() {
     const dataToSave = {
       name: formValues.name,
       description: formValues.description,
-      availability: formValues.availability,
+      availability: formValues.availability, // This is now a boolean
     };
 
     try {
@@ -151,11 +157,17 @@ export function ServiceDataTableClient() {
 
   const filteredServices = useMemo(() => {
     if (!serviceSearchTerm) return services;
-    return services.filter(item =>
-      item.name.toLowerCase().includes(serviceSearchTerm.toLowerCase()) ||
-      item.description.toLowerCase().includes(serviceSearchTerm.toLowerCase()) ||
-      item.availability.toLowerCase().includes(serviceSearchTerm.toLowerCase())
-    );
+    const lowercasedFilter = serviceSearchTerm.toLowerCase();
+    return services.filter(item => {
+      const isAvailableString = item.availability ? "available" : "unavailable";
+      const isYesNoString = item.availability ? "yes" : "no";
+      return (
+        item.name.toLowerCase().includes(lowercasedFilter) ||
+        item.description.toLowerCase().includes(lowercasedFilter) ||
+        isAvailableString.includes(lowercasedFilter) ||
+        isYesNoString.includes(lowercasedFilter)
+      );
+    });
   }, [services, serviceSearchTerm]);
 
   if (authLoading) {
@@ -205,9 +217,9 @@ export function ServiceDataTableClient() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[25%]">Name</TableHead>
-                  <TableHead className="w-[40%]">Description</TableHead>
-                  <TableHead className="w-[25%]">Availability</TableHead>
+                  <TableHead className="w-[30%]">Name</TableHead>
+                  <TableHead className="w-[45%]">Description</TableHead>
+                  <TableHead className="w-[15%] text-center">Available</TableHead>
                   <TableHead className="text-right w-[10%]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -226,7 +238,11 @@ export function ServiceDataTableClient() {
                     <TableRow key={item.id} className="hover:bg-muted/50 transition-colors">
                       <TableCell className="font-medium align-top">{item.name}</TableCell>
                       <TableCell className="align-top whitespace-pre-wrap">{item.description}</TableCell>
-                      <TableCell className="align-top">{item.availability}</TableCell>
+                      <TableCell className="align-top text-center">
+                        <Badge variant={item.availability ? "default" : "secondary"}>
+                          {item.availability ? "Yes" : "No"}
+                        </Badge>
+                      </TableCell>
                       <TableCell className="text-right align-top">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -291,3 +307,4 @@ export function ServiceDataTableClient() {
     </div>
   );
 }
+

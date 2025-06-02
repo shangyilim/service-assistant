@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch"; // Import Switch
 import { ServiceItemSchema, ServiceItemFormValues } from "@/lib/schemas";
 import type { ServiceItem } from "@/types";
 import React, { useEffect } from "react";
@@ -39,18 +40,18 @@ interface ServiceFormDialogProps {
 export function ServiceFormDialog({ item, onSave, children, open, onOpenChange }: ServiceFormDialogProps) {
   const form = useForm<ServiceItemFormValues>({
     resolver: zodResolver(ServiceItemSchema),
-    defaultValues: item || {
-      name: "",
-      description: "",
-      availability: "",
-    },
+    defaultValues: item ? 
+      { ...item, availability: typeof item.availability === 'boolean' ? item.availability : true } : 
+      { name: "", description: "", availability: true }, // Default to true for new items
   });
 
   useEffect(() => {
-    if (item) {
-      form.reset(item);
-    } else {
-      form.reset({ name: "", description: "", availability: "" });
+    if (open) { // Reset form only when dialog opens or item changes
+      if (item) {
+        form.reset({ ...item, availability: typeof item.availability === 'boolean' ? item.availability : true });
+      } else {
+        form.reset({ name: "", description: "", availability: true });
+      }
     }
   }, [item, form, open]);
 
@@ -108,12 +109,17 @@ export function ServiceFormDialog({ item, onSave, children, open, onOpenChange }
               control={form.control}
               name="availability"
               render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Availability</FormLabel>
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                  <div className="space-y-0.5">
+                    <FormLabel>Available</FormLabel>
+                    <FormMessage />
+                  </div>
                   <FormControl>
-                    <Input placeholder="e.g., Mon-Fri, 9am-5pm or By Appointment" {...field} />
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
                   </FormControl>
-                  <FormMessage />
                 </FormItem>
               )}
             />

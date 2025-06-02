@@ -29,3 +29,10 @@ export interface AppointmentItem {
   notes?: string;
 }
 
+export interface ServiceItem {
+  id: string;
+  name: string;
+  description: string;
+  availability: string; // e.g., "Mon-Fri, 9am-5pm", "Weekends only", "By appointment"
+}
+

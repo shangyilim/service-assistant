@@ -27,3 +27,12 @@ export const AppointmentItemSchema = z.object({
 });
 
 export type AppointmentItemFormValues = z.infer<typeof AppointmentItemSchema>;
+
+export const ServiceItemSchema = z.object({
+  id: z.string().optional(),
+  name: z.string().min(3, { message: "Service name must be at least 3 characters." }).max(100, { message: "Service name must be 100 characters or less." }),
+  description: z.string().min(10, { message: "Description must be at least 10 characters." }).max(1000, { message: "Description must be 1000 characters or less." }),
+  availability: z.string().min(3, {message: "Availability details are required."}).max(100, { message: "Availability must be 100 characters or less." }),
+});
+
+export type ServiceItemFormValues = z.infer<typeof ServiceItemSchema>;

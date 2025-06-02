@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { useAuth } from '@/hooks/use-auth';
 import { PageHeader } from '@/components/common/page-header';
 import { Logo } from '@/components/common/logo';
-import { Loader2, Home, HelpCircle, CalendarDays } from 'lucide-react';
+import { Loader2, Home, HelpCircle, CalendarDays, Briefcase } from 'lucide-react'; // Added Briefcase
 import {
   SidebarProvider,
   Sidebar,
@@ -89,6 +89,18 @@ export default function DashboardLayout({
                 <Link href="/dashboard/appointments">
                   <CalendarDays />
                   Appointments
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                asChild
+                isActive={pathname === '/dashboard/services'}
+                tooltip="Services"
+              >
+                <Link href="/dashboard/services">
+                  <Briefcase />
+                  Services
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>

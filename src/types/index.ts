@@ -18,6 +18,7 @@ export interface FaqItem {
   id: string;
   question: string;
   answer: string;
+  userId?: string; // Added to store the ID of the user who created the FAQ
 }
 
 export interface AppointmentItem {
@@ -27,3 +28,4 @@ export interface AppointmentItem {
   location?: string;
   notes?: string;
 }
+

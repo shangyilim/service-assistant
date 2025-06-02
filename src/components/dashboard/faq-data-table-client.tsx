@@ -58,18 +58,10 @@ export function FaqDataTableClient() {
   const { toast } = useToast();
   const { user, loading: authLoading } = useAuth();
 
-  const faqsCollectionRef = useMemo(() => {
-    if (!user) return null;
-    return collection(db, "users", user.id, "faqs");
-  }, [user]);
+  // FAQs are now in a global collection "faqs"
+  const faqsCollectionRef = useMemo(() => collection(db, "faqs"), []);
 
   useEffect(() => {
-    if (!faqsCollectionRef) {
-      setFaqs([]);
-      setIsLoadingData(false);
-      return;
-    }
-
     setIsLoadingData(true);
     const q = query(faqsCollectionRef, orderBy("question"));
     const unsubscribe = onSnapshot(q, 
@@ -92,12 +84,12 @@ export function FaqDataTableClient() {
   }, [faqsCollectionRef, toast]);
 
   const handleSaveFaqItem = async (formValues: FaqItemFormValues) => {
-    if (!faqsCollectionRef) {
-      toast({ title: "Error", description: "User not authenticated or collection not available.", variant: "destructive" });
+    if (!user) {
+      toast({ title: "Authentication Error", description: "You need to be logged in to save FAQs.", variant: "destructive" });
       return;
     }
 
-    const dataToSave = {
+    const dataToSave: Partial<FaqItem> = { // Use Partial<FaqItem> for flexibility
       question: formValues.question,
       answer: formValues.answer,
     };
@@ -105,10 +97,16 @@ export function FaqDataTableClient() {
     try {
       if (editingFaqItem && editingFaqItem.id) {
         const itemDocRef = doc(faqsCollectionRef, editingFaqItem.id);
-        await updateDoc(itemDocRef, dataToSave);
+        // Only update question and answer, userId (if present) remains unchanged
+        await updateDoc(itemDocRef, {
+            question: formValues.question,
+            answer: formValues.answer,
+        });
         toast({ title: "Success", description: "FAQ updated successfully." });
       } else {
-        await addDoc(faqsCollectionRef, dataToSave);
+        // Add new FAQ, include userId
+        dataToSave.userId = user.id;
+        await addDoc(faqsCollectionRef, dataToSave as FaqItem); // Cast to FaqItem as userId is now added
         toast({ title: "Success", description: "FAQ added successfully." });
       }
       setEditingFaqItem(null);
@@ -134,7 +132,12 @@ export function FaqDataTableClient() {
   };
 
   const handleDeleteFaqItem = async () => {
-    if (!faqItemToDelete || !faqItemToDelete.id || !faqsCollectionRef) return;
+    if (!user) {
+      toast({ title: "Authentication Error", description: "You need to be logged in to delete FAQs.", variant: "destructive" });
+      setFaqItemToDelete(null);
+      return;
+    }
+    if (!faqItemToDelete || !faqItemToDelete.id) return;
 
     try {
       const itemDocRef = doc(faqsCollectionRef, faqItemToDelete.id);
@@ -173,7 +176,7 @@ export function FaqDataTableClient() {
               <HelpCircle className="h-7 w-7 text-primary" />
               <CardTitle className="text-2xl font-headline">Manage FAQs</CardTitle>
             </div>
-            <CardDescription>Add, edit, or delete your frequently asked questions.</CardDescription>
+            <CardDescription>Add, edit, or delete frequently asked questions. These are visible to all users.</CardDescription>
           </div>
           <div className="flex flex-col sm:flex-row gap-2 items-center">
             <div className="relative w-full sm:w-auto">
@@ -205,6 +208,7 @@ export function FaqDataTableClient() {
                 <TableRow>
                   <TableHead className="w-1/3">Question</TableHead>
                   <TableHead className="w-2/3">Answer</TableHead>
+                  {/* Consider adding a "Created By" column if needed in the future */}
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -287,3 +291,4 @@ export function FaqDataTableClient() {
     </div>
   );
 }
+

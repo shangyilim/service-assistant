@@ -24,7 +24,7 @@ import { ServiceFormDialog } from "./service-form-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { MoreHorizontal, PlusCircle, Trash2, Edit3, Search, Loader2, Briefcase, Settings2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge"; // Import Badge for availability display
+import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -47,6 +47,7 @@ import {
   query,
   onSnapshot,
   orderBy,
+  where, // Import where for filtering
 } from "firebase/firestore";
 
 export function ServiceDataTableClient() {
@@ -59,20 +60,29 @@ export function ServiceDataTableClient() {
   const { toast } = useToast();
   const { user, loading: authLoading } = useAuth();
 
-  const servicesCollectionRef = useMemo(() => {
-    if (!user) return null;
-    return collection(db, "users", user.id, "services");
-  }, [user]);
+  // Services are now in a top-level collection
+  const servicesCollectionRef = useMemo(() => collection(db, "services"), []);
 
   useEffect(() => {
-    if (!servicesCollectionRef) {
+    if (authLoading) {
+      setIsLoadingData(true);
+      return;
+    }
+
+    if (!user) {
       setServices([]);
       setIsLoadingData(false);
       return;
     }
 
     setIsLoadingData(true);
-    const q = query(servicesCollectionRef, orderBy("name")); 
+    // Query for services created by the current user
+    const q = query(
+      servicesCollectionRef, 
+      where("userId", "==", user.id), 
+      orderBy("name")
+    ); 
+    
     const unsubscribe = onSnapshot(q, 
       (querySnapshot) => {
         const items = querySnapshot.docs.map(doc => {
@@ -81,7 +91,8 @@ export function ServiceDataTableClient() {
             id: doc.id,
             name: data.name,
             description: data.description,
-            availability: typeof data.availability === 'boolean' ? data.availability : true, // Ensure boolean
+            availability: typeof data.availability === 'boolean' ? data.availability : true,
+            userId: data.userId, // Include userId
           } as ServiceItem;
         });
         setServices(items);
@@ -95,27 +106,30 @@ export function ServiceDataTableClient() {
     );
 
     return () => unsubscribe();
-  }, [servicesCollectionRef, toast]);
+  }, [user, authLoading, servicesCollectionRef, toast]);
 
   const handleSaveServiceItem = async (formValues: ServiceItemFormValues) => {
-    if (!servicesCollectionRef) {
-      toast({ title: "Error", description: "User not authenticated or collection not available.", variant: "destructive" });
+    if (!user) {
+      toast({ title: "Authentication Error", description: "You must be logged in to save services.", variant: "destructive" });
       return;
     }
 
     const dataToSave = {
       name: formValues.name,
       description: formValues.description,
-      availability: formValues.availability, // This is now a boolean
+      availability: formValues.availability,
+      userId: user.id, // Add userId to the service data
     };
 
     try {
       if (editingServiceItem && editingServiceItem.id) {
+        // Ensure user is not trying to update userId, it's set on creation
+        const { userId, ...updateData } = dataToSave; 
         const itemDocRef = doc(servicesCollectionRef, editingServiceItem.id);
-        await updateDoc(itemDocRef, dataToSave);
+        await updateDoc(itemDocRef, updateData); // Do not update userId on edit
         toast({ title: "Success", description: "Service updated successfully." });
       } else {
-        await addDoc(servicesCollectionRef, dataToSave);
+        await addDoc(servicesCollectionRef, dataToSave); // Save with userId for new items
         toast({ title: "Success", description: "Service added successfully." });
       }
       setEditingServiceItem(null);
@@ -127,6 +141,8 @@ export function ServiceDataTableClient() {
   };
 
   const openEditServiceDialog = (item: ServiceItem) => {
+    // Optional: Add a check here to ensure the current user owns the service if needed,
+    // though Firestore rules should be the primary enforcer of this.
     setEditingServiceItem(item);
     setIsServiceFormOpen(true);
   };
@@ -137,11 +153,19 @@ export function ServiceDataTableClient() {
   };
   
   const confirmDeleteServiceItem = (item: ServiceItem) => {
+    // Optional: Add ownership check here too.
     setServiceItemToDelete(item);
   };
 
   const handleDeleteServiceItem = async () => {
-    if (!serviceItemToDelete || !serviceItemToDelete.id || !servicesCollectionRef) return;
+    if (!user) {
+      toast({ title: "Authentication Error", description: "You must be logged in to delete services.", variant: "destructive" });
+      setServiceItemToDelete(null);
+      return;
+    }
+    if (!serviceItemToDelete || !serviceItemToDelete.id) return;
+    
+    // Optional: Verify ownership again before deleting, or rely on Firestore rules.
 
     try {
       const itemDocRef = doc(servicesCollectionRef, serviceItemToDelete.id);
@@ -170,7 +194,7 @@ export function ServiceDataTableClient() {
     });
   }, [services, serviceSearchTerm]);
 
-  if (authLoading) {
+  if (authLoading && !user) { // Show loader if auth is loading and user is not yet determined
     return (
       <div className="container mx-auto py-8 px-4 sm:px-6 lg:px-8 flex justify-center items-center h-[calc(100vh-200px)]">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -199,7 +223,7 @@ export function ServiceDataTableClient() {
                 className="pl-10 w-full sm:w-[250px]"
               />
             </div>
-            <Button onClick={openAddServiceDialog} className="w-full sm:w-auto">
+            <Button onClick={openAddServiceDialog} className="w-full sm:w-auto" disabled={!user || authLoading}>
               <PlusCircle className="mr-2 h-4 w-4" /> Add New Service
             </Button>
           </div>
@@ -266,14 +290,14 @@ export function ServiceDataTableClient() {
                 ) : (
                   <TableRow>
                     <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
-                      {serviceSearchTerm ? "No results found for your search." : "No services defined. Add new services to get started."}
+                      {authLoading ? "Loading user data..." : !user ? "Please log in to manage services." : serviceSearchTerm ? "No results found for your search." : "No services defined. Add new services to get started."}
                     </TableCell>
                   </TableRow>
                 )}
               </TableBody>
             </Table>
           </div>
-          {!isLoadingData && filteredServices.length === 0 && serviceSearchTerm === "" && (
+          {!isLoadingData && user && filteredServices.length === 0 && serviceSearchTerm === "" && (
              <div className="text-center py-10">
                 <Settings2 className="mx-auto h-12 w-12 text-muted-foreground" data-ai-hint="services settings" />
                 <h3 className="mt-2 text-sm font-medium text-foreground">No services yet</h3>

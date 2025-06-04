@@ -37,5 +37,6 @@ export interface ServiceItem {
   name: string;
   description: string;
   availability: boolean; // Changed from string to boolean
+  userId?: string; // ID of the user who created the service
 }
 

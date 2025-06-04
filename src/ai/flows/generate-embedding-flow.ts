@@ -32,15 +32,16 @@ const generateEmbeddingFlow = ai.defineFlow(
     outputSchema: GenerateEmbeddingOutputSchema,
   },
   async (input) => {
-    const {output} = await ai.embed({
-      model: 'googleai/text-embedding-004', // Explicitly specify the model
+    const response = await ai.embed({
+      embedder: 'googleai/text-embedding-004', // Explicitly specify the model
       content: input.text,
     });
+    const embedding = response[0]?.embedding;
 
-    if (!output || !output.embedding) {
+    if (!embedding) {
       console.error('Embedding generation failed or returned no embedding for input:', input.text);
       throw new Error('Embedding generation failed or returned no embedding.');
     }
-    return { embedding: output.embedding };
+    return { embedding };
   }
 );

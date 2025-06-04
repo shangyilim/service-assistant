@@ -79,10 +79,9 @@ export function ServiceDataTableClient() {
     }
 
     setIsLoadingData(true);
-    // Query for services created by the current user
+    // Query for services created
     const q = query(
       servicesCollectionRef, 
-      where("userId", "==", user.id), 
       orderBy("name")
     ); 
     

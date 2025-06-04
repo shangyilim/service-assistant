@@ -19,6 +19,7 @@ export interface FaqItem {
   question: string;
   answer: string;
   userId?: string; // Added to store the ID of the user who created the FAQ
+  embedding?: number[] | null | undefined; // Allow null for initial state
 }
 
 export interface AppointmentItem {
@@ -37,3 +38,4 @@ export interface ServiceItem {
   description: string;
   availability: boolean; // Changed from string to boolean
 }
+

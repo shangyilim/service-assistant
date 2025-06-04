@@ -46,7 +46,10 @@ import {
   query,
   onSnapshot,
   orderBy,
+  type DocumentReference,
 } from "firebase/firestore";
+import { generateEmbedding } from "@/ai/flows/generate-embedding-flow";
+
 
 export function FaqDataTableClient() {
   const [faqs, setFaqs] = useState<FaqItem[]>([]);
@@ -58,7 +61,6 @@ export function FaqDataTableClient() {
   const { toast } = useToast();
   const { user, loading: authLoading } = useAuth();
 
-  // FAQs are now in a global collection "faqs"
   const faqsCollectionRef = useMemo(() => collection(db, "faqs"), []);
 
   useEffect(() => {
@@ -89,28 +91,48 @@ export function FaqDataTableClient() {
       return;
     }
 
-    const dataToSave: Partial<FaqItem> = { // Use Partial<FaqItem> for flexibility
+    let docRefToUpdate: DocumentReference | null = null;
+
+    const dataToSave: Partial<FaqItem> = {
       question: formValues.question,
       answer: formValues.answer,
+      embedding: null, // Initialize embedding field as null
     };
 
     try {
       if (editingFaqItem && editingFaqItem.id) {
         const itemDocRef = doc(faqsCollectionRef, editingFaqItem.id);
-        // Only update question and answer, userId (if present) remains unchanged
-        await updateDoc(itemDocRef, {
+        // For updates, only update question and answer if they changed. Embedding will be regenerated.
+        await updateDoc(itemDocRef, { 
             question: formValues.question,
             answer: formValues.answer,
+            embedding: null, // Reset embedding on text change, will be regenerated
         });
+        docRefToUpdate = itemDocRef;
         toast({ title: "Success", description: "FAQ updated successfully." });
       } else {
-        // Add new FAQ, include userId
         dataToSave.userId = user.id;
-        await addDoc(faqsCollectionRef, dataToSave as FaqItem); // Cast to FaqItem as userId is now added
+        // Ensure embedding is initialized for new docs
+        const docRef = await addDoc(faqsCollectionRef, { ...dataToSave, embedding: null });
+        docRefToUpdate = docRef;
         toast({ title: "Success", description: "FAQ added successfully." });
       }
       setEditingFaqItem(null);
       setIsFaqFormOpen(false);
+
+      // If successful, generate and save embedding
+      if (docRefToUpdate) { 
+        toast({ title: "Generating Embedding", description: "Please wait...", duration: 3000 });
+        try {
+          const embeddingData = await generateEmbedding({ text: `${formValues.question} ${formValues.answer}` });
+          await updateDoc(docRefToUpdate, { embedding: embeddingData.embedding });
+          toast({ title: "Embedding Generated", description: "FAQ embedding saved successfully." });
+        } catch (embeddingError) {
+          console.error("Error generating or saving embedding: ", embeddingError);
+          toast({ title: "Embedding Error", description: "Could not generate or save FAQ embedding.", variant: "destructive" });
+        }
+      }
+
     } catch (error) {
       console.error("Error saving FAQ: ", error);
       toast({ title: "Error", description: "Could not save FAQ.", variant: "destructive" });
@@ -208,7 +230,6 @@ export function FaqDataTableClient() {
                 <TableRow>
                   <TableHead className="w-1/3">Question</TableHead>
                   <TableHead className="w-2/3">Answer</TableHead>
-                  {/* Consider adding a "Created By" column if needed in the future */}
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -291,4 +312,3 @@ export function FaqDataTableClient() {
     </div>
   );
 }
-

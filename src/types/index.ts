@@ -38,5 +38,6 @@ export interface ServiceItem {
   description: string;
   availability: boolean; // Changed from string to boolean
   userId?: string; // ID of the user who created the service
+  embedding?: number[] | null | undefined; // For storing generated embeddings
 }
 

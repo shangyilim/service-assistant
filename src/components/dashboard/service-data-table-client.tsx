@@ -48,7 +48,10 @@ import {
   onSnapshot,
   orderBy,
   where, // Import where for filtering
+  type DocumentReference,
 } from "firebase/firestore";
+import { generateEmbedding } from "@/ai/flows/generate-embedding-flow";
+
 
 export function ServiceDataTableClient() {
   const [services, setServices] = useState<ServiceItem[]>([]);
@@ -93,6 +96,7 @@ export function ServiceDataTableClient() {
             description: data.description,
             availability: typeof data.availability === 'boolean' ? data.availability : true,
             userId: data.userId, // Include userId
+            embedding: data.embedding, // Include embedding
           } as ServiceItem;
         });
         setServices(items);
@@ -114,26 +118,55 @@ export function ServiceDataTableClient() {
       return;
     }
 
-    const dataToSave = {
+    let docRefToUpdate: DocumentReference | null = null;
+    const baseData = {
       name: formValues.name,
       description: formValues.description,
       availability: formValues.availability,
-      userId: user.id, // Add userId to the service data
     };
 
     try {
       if (editingServiceItem && editingServiceItem.id) {
-        // Ensure user is not trying to update userId, it's set on creation
-        const { userId, ...updateData } = dataToSave; 
         const itemDocRef = doc(servicesCollectionRef, editingServiceItem.id);
-        await updateDoc(itemDocRef, updateData); // Do not update userId on edit
+        // For updates, update name, desc, availability, and reset embedding. userId is not changed.
+        await updateDoc(itemDocRef, {
+            ...baseData,
+            embedding: null, // Reset embedding, will be regenerated
+        });
+        docRefToUpdate = itemDocRef;
         toast({ title: "Success", description: "Service updated successfully." });
       } else {
-        await addDoc(servicesCollectionRef, dataToSave); // Save with userId for new items
+        // New service
+        const newServiceData = {
+            ...baseData,
+            userId: user.id, // Add userId only for new services
+            embedding: null, // Initialize embedding as null for new docs
+        };
+        const docRef = await addDoc(servicesCollectionRef, newServiceData);
+        docRefToUpdate = docRef;
         toast({ title: "Success", description: "Service added successfully." });
       }
       setEditingServiceItem(null);
       setIsServiceFormOpen(false);
+
+      // Generate and save embedding
+      if (docRefToUpdate) {
+        toast({ title: "Generating Embedding", description: "Please wait for service embedding...", duration: 3000 });
+        try {
+          const embeddingInputText = `${formValues.name} ${formValues.description}`;
+          const { embedding } = await generateEmbedding({ text: embeddingInputText });
+          if (embedding) {
+            await updateDoc(docRefToUpdate, { embedding: embedding });
+            toast({ title: "Embedding Generated", description: "Service embedding saved successfully." });
+          } else {
+            throw new Error("Embedding generation returned no data for service.");
+          }
+        } catch (embeddingError) {
+          console.error("Error generating or saving service embedding: ", embeddingError);
+          toast({ title: "Service Embedding Error", description: "Could not generate or save service embedding.", variant: "destructive" });
+        }
+      }
+
     } catch (error) {
       console.error("Error saving service: ", error);
       toast({ title: "Error", description: "Could not save service.", variant: "destructive" });
@@ -141,8 +174,6 @@ export function ServiceDataTableClient() {
   };
 
   const openEditServiceDialog = (item: ServiceItem) => {
-    // Optional: Add a check here to ensure the current user owns the service if needed,
-    // though Firestore rules should be the primary enforcer of this.
     setEditingServiceItem(item);
     setIsServiceFormOpen(true);
   };
@@ -153,7 +184,6 @@ export function ServiceDataTableClient() {
   };
   
   const confirmDeleteServiceItem = (item: ServiceItem) => {
-    // Optional: Add ownership check here too.
     setServiceItemToDelete(item);
   };
 
@@ -165,8 +195,6 @@ export function ServiceDataTableClient() {
     }
     if (!serviceItemToDelete || !serviceItemToDelete.id) return;
     
-    // Optional: Verify ownership again before deleting, or rely on Firestore rules.
-
     try {
       const itemDocRef = doc(servicesCollectionRef, serviceItemToDelete.id);
       await deleteDoc(itemDocRef);
@@ -194,7 +222,7 @@ export function ServiceDataTableClient() {
     });
   }, [services, serviceSearchTerm]);
 
-  if (authLoading && !user) { // Show loader if auth is loading and user is not yet determined
+  if (authLoading && !user) { 
     return (
       <div className="container mx-auto py-8 px-4 sm:px-6 lg:px-8 flex justify-center items-center h-[calc(100vh-200px)]">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -211,7 +239,7 @@ export function ServiceDataTableClient() {
               <Briefcase className="h-7 w-7 text-primary" />
               <CardTitle className="text-2xl font-headline">Manage Services</CardTitle>
             </div>
-            <CardDescription>Define, view, edit, or delete your services.</CardDescription>
+            <CardDescription>Define, view, edit, or delete your services. Embeddings will be generated automatically.</CardDescription>
           </div>
           <div className="flex flex-col sm:flex-row gap-2 items-center">
             <div className="relative w-full sm:w-auto">

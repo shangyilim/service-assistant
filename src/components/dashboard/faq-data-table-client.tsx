@@ -92,27 +92,29 @@ export function FaqDataTableClient() {
     }
 
     let docRefToUpdate: DocumentReference | null = null;
+    let isNewDoc = false;
 
-    const dataToSave: Partial<FaqItem> = {
+    const dataToSave: Partial<FaqItem> & { userId?: string } = {
       question: formValues.question,
       answer: formValues.answer,
-      embedding: null, // Initialize embedding field as null
+      embedding: null, // Initialize embedding as null
     };
 
     try {
       if (editingFaqItem && editingFaqItem.id) {
         const itemDocRef = doc(faqsCollectionRef, editingFaqItem.id);
-        // For updates, only update question and answer if they changed. Embedding will be regenerated.
+        // When updating, we only update question, answer, and reset embedding. UserId is not changed.
         await updateDoc(itemDocRef, { 
             question: formValues.question,
             answer: formValues.answer,
-            embedding: null, // Reset embedding on text change, will be regenerated
+            embedding: null, // Reset embedding, will be regenerated
         });
         docRefToUpdate = itemDocRef;
         toast({ title: "Success", description: "FAQ updated successfully." });
       } else {
-        dataToSave.userId = user.id;
-        // Ensure embedding is initialized for new docs
+        isNewDoc = true;
+        dataToSave.userId = user.id; // Add userId only for new FAQs
+        // Initialize with embedding: null for new docs
         const docRef = await addDoc(faqsCollectionRef, { ...dataToSave, embedding: null });
         docRefToUpdate = docRef;
         toast({ title: "Success", description: "FAQ added successfully." });
@@ -120,7 +122,7 @@ export function FaqDataTableClient() {
       setEditingFaqItem(null);
       setIsFaqFormOpen(false);
 
-      // If successful, generate and save embedding
+      
       if (docRefToUpdate) { 
         toast({ title: "Generating Embedding", description: "Please wait...", duration: 3000 });
         try {

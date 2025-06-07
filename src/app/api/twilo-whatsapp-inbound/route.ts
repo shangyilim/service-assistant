@@ -8,8 +8,30 @@ import { type NextRequest, NextResponse } from 'next/server';
  */
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    console.log('Twilio WhatsApp Inbound POST Request Body:', body);
+    // Twilio typically sends data as application/x-www-form-urlencoded
+    const formData = await request.formData();
+    
+    const body = formData.get('Body');
+    const from = formData.get('From');
+    const to = formData.get('To');
+    const messageSid = formData.get('MessageSid');
+    const numMedia = formData.get('NumMedia');
+    const profileName = formData.get('ProfileName'); // Sender's WhatsApp profile name
+
+    // Log the raw form data for debugging if needed
+    const allFormData: Record<string, unknown> = {};
+    for (const [key, value] of formData.entries()) {
+      allFormData[key] = value;
+    }
+    console.log('Twilio WhatsApp Inbound POST Request Raw FormData:', allFormData);
+
+    // Log extracted message details
+    console.log('Received WhatsApp Message:');
+    console.log(`  SID: ${messageSid}`);
+    console.log(`  From: ${from} (Profile: ${profileName || 'N/A'})`);
+    console.log(`  To: ${to}`);
+    console.log(`  Body: ${body}`);
+    console.log(`  Number of Media: ${numMedia}`);
 
     // TODO: Add your logic here to process the Twilio webhook.
     // For example, validate the Twilio signature, parse the message content,
@@ -18,7 +40,6 @@ export async function POST(request: NextRequest) {
     // Respond to Twilio to acknowledge receipt.
     // For message webhooks, Twilio often expects an empty 200 OK,
     // or a TwiML response if you intend to send an automated reply.
-    // Sending a simple JSON acknowledgement is also acceptable for initial setup.
     return NextResponse.json({ message: 'Webhook received successfully' }, { status: 200 });
   } catch (error) {
     let errorMessage = 'Failed to process webhook';

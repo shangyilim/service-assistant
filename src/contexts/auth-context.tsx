@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { auth } from '@/lib/firebase'; // Import Firebase auth instance
 import { 
   onAuthStateChanged, 
-  signInWithPopup, 
+  signInWithRedirect, // Changed from signInWithPopup
   GoogleAuthProvider, 
   signOut as firebaseSignOut, // Renamed to avoid conflict
   type User as FirebaseUser // Type for Firebase user object
@@ -51,16 +51,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setLoading(true);
     const provider = new GoogleAuthProvider();
     try {
-      await signInWithPopup(auth, provider);
-      // onAuthStateChanged will handle setting the user and navigating
-      // No need to manually push router here, as onAuthStateChanged will trigger a re-render
-      // and the login page/dashboard layout useEffects will handle redirection.
+      // Using signInWithRedirect instead of signInWithPopup
+      await signInWithRedirect(auth, provider);
+      // After signInWithRedirect, the page will redirect to Google's sign-in page.
+      // Firebase handles the redirect result automatically, and onAuthStateChanged 
+      // will pick up the user session once the redirect completes.
+      // setLoading(false) will be handled by onAuthStateChanged after redirect.
     } catch (error) {
       console.error("Firebase sign-in error:", error);
-      // You might want to show a toast notification to the user here
-      setLoading(false);
+      // Handle errors that might occur before the redirect (e.g., configuration issues)
+      setLoading(false); 
     }
-    // setLoading(false) is managed by onAuthStateChanged or error cases
   };
 
   const signOut = async () => {

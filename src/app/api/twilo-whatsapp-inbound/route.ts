@@ -2,53 +2,22 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import twilio from 'twilio';
 
+
+const twiloClient = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+
 /**
  * Handles POST requests for inbound Twilio WhatsApp messages.
  * @param request - The NextRequest object.
  * @returns A NextResponse object.
  */
 export async function POST(request: NextRequest) {
-  const authToken = process.env.TWILIO_AUTH_TOKEN;
-  if (!authToken) {
-    console.error('CRITICAL: TWILIO_AUTH_TOKEN is not set in environment variables.');
-    // Do not expose detailed error to client for security reasons
-    return NextResponse.json({ error: 'Webhook configuration error.' }, { status: 500 });
-  }
-
-  const twilioSignature = request.headers.get('X-Twilio-Signature');
-  if (!twilioSignature) {
-    console.warn('Request received without X-Twilio-Signature header.');
-    return NextResponse.json({ error: 'Missing Twilio signature.' }, { status: 400 });
-  }
-
-  // The URL used for validation must be the full URL Twilio POSTed to, including query params.
-  // request.url from NextRequest provides this.
-  const requestUrl = request.url;
+  
 
   try {
-    // Parse formData to get parameters for validation and for use.
-    // This needs to be done before accessing specific fields like 'Body'.
-    const formData = await request.formData();
-    const params: Record<string, string> = {};
-    for (const [key, value] of formData.entries()) {
-      // Twilio sends form data as strings. If files were involved, this would need more handling.
-      if (typeof value === 'string') {
-        params[key] = value;
-      }
-    }
     
-    const isValid = twilio.validateRequest(
-      authToken,
-      twilioSignature,
-      requestUrl,
-      params // These are the POST parameters from the form data
-    );
+    validateTwiloRequest(request);
 
-    if (!isValid) {
-      console.warn('Invalid Twilio signature. Request rejected.');
-      return NextResponse.json({ error: 'Invalid Twilio signature.' }, { status: 403 });
-    }
-
+    const formData = await request.formData();
     // If execution reaches here, the request is validated.
     // Now, safely access the form data.
     const body = formData.get('Body');
@@ -58,9 +27,7 @@ export async function POST(request: NextRequest) {
     const numMedia = formData.get('NumMedia');
     const profileName = formData.get('ProfileName'); // Sender's WhatsApp profile name
 
-    // Log the raw form data (params) for debugging if needed (now that it's validated)
-    console.log('Twilio WhatsApp Inbound POST Request (Validated) Raw Params:', params);
-
+    
     // Log extracted message details
     console.log('Received Validated WhatsApp Message:');
     console.log(`  SID: ${messageSid}`);
@@ -109,4 +76,50 @@ export async function GET(request: NextRequest) {
   const queryParams = request.nextUrl.searchParams;
   console.log('Twilio WhatsApp Inbound GET Request Parameters:', queryParams.toString());
   return NextResponse.json({ message: 'Endpoint active. Ready for POST requests.' }, { status: 200 });
+}
+
+async function validateTwiloRequest(request: NextRequest) {
+  const authToken = process.env.TWILIO_AUTH_TOKEN;
+  if (!authToken) {
+    console.error('CRITICAL: TWILIO_AUTH_TOKEN is not set in environment variables.');
+    // Do not expose detailed error to client for security reasons
+    return NextResponse.json({ error: 'Webhook configuration error.' }, { status: 500 });
+  }
+
+  const twilioSignature = request.headers.get('X-Twilio-Signature');
+  if (!twilioSignature) {
+    console.warn('Request received without X-Twilio-Signature header.');
+    return NextResponse.json({ error: 'Missing Twilio signature.' }, { status: 400 });
+  }
+
+  // The URL used for validation must be the full URL Twilio POSTed to, including query params.
+  // request.url from NextRequest provides this.
+  const requestUrl = request.url;
+
+  // Parse formData to get parameters for validation and for use.
+    // This needs to be done before accessing specific fields like 'Body'.
+    const formData = await request.formData();
+    const params: Record<string, string> = {};
+    for (const [key, value] of formData.entries()) {
+      // Twilio sends form data as strings. If files were involved, this would need more handling.
+      if (typeof value === 'string') {
+        params[key] = value;
+      }
+    }
+    
+    const isValid = twilio.validateRequest(
+      authToken,
+      twilioSignature,
+      requestUrl,
+      params // These are the POST parameters from the form data
+    );
+
+    if (!isValid) {
+      console.warn('Invalid Twilio signature. Request rejected.');
+      return NextResponse.json({ error: 'Invalid Twilio signature.' }, { status: 403 });
+    }
+
+    // Log the raw form data (params) for debugging if needed (now that it's validated)
+    console.log('Twilio WhatsApp Inbound POST Request (Validated) Raw Params:', params);
+    return true;
 }

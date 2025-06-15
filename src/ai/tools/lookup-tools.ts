@@ -19,7 +19,6 @@ const FaqItemZodSchema = z.object({
   question: z.string(),
   answer: z.string(),
   userId: z.string().optional(),
-  // embedding is not typically returned by the tool
 });
 
 export const LookupFaqInputSchema = z.object({
@@ -45,15 +44,12 @@ export const lookupFaqTool = ai.defineTool(
     }
     try {
       const faqsCollectionRef = collection(db, 'faqs');
-      // Basic keyword matching for simplicity. Could be improved with vector search if FAQs have embeddings.
-      // This example searches if the query appears in the question (case-insensitive).
-      // For a real app, you'd want more sophisticated search (e.g., tokenizing, multiple field search, or vector).
-      const q = query(faqsCollectionRef, orderBy('question')); // Fetch all and filter client-side for this basic example.
+      const q = query(faqsCollectionRef, orderBy('question')); 
       const querySnapshot = await getDocs(q);
       const faqs = querySnapshot.docs
         .map(doc => ({ id: doc.id, ...doc.data() } as FaqItem))
         .filter(faq => faq.question.toLowerCase().includes(input.query.toLowerCase()) || faq.answer.toLowerCase().includes(input.query.toLowerCase()))
-        .slice(0, 5); // Limit to 5 results
+        .slice(0, 5); 
 
       console.log(`Found ${faqs.length} FAQs for query: "${input.query}"`);
       return faqs;
@@ -71,7 +67,6 @@ const ServiceItemZodSchema = z.object({
   description: z.string(),
   availability: z.boolean(),
   userId: z.string().optional(),
-  // embedding is not typically returned by the tool
 });
 
 export const LookupServiceInputSchema = z.object({
@@ -86,7 +81,7 @@ export type LookupServiceOutput = z.infer<typeof LookupServiceOutputSchema>;
 export const lookupServiceTool = ai.defineTool(
   {
     name: 'lookupServiceTool',
-    description: 'Looks up available services. Use GENERIC queryType to list all services, or SPECIFIC with a query to find particular services. Specific queries use vector search on service embeddings.',
+    description: "Looks up available services. Use GENERIC queryType to list all services. Use SPECIFIC with a query to find particular services using vector search based on the service's embedding.",
     inputSchema: LookupServiceInputSchema,
     outputSchema: LookupServiceOutputSchema,
   },
@@ -96,6 +91,7 @@ export const lookupServiceTool = ai.defineTool(
 
     try {
       if (input.queryType === 'GENERIC') {
+        console.log('Performing GENERIC lookup for all available services.');
         const q = query(servicesCollectionRef, where('availability', '==', true), orderBy('name'));
         const querySnapshot = await getDocs(q);
         const services = querySnapshot.docs.map(doc => {
@@ -110,47 +106,45 @@ export const lookupServiceTool = ai.defineTool(
         });
         console.log(`Found ${services.length} generic services.`);
         return services.length > 0 ? services : [];
-      } else { // SPECIFIC query
+      } else { // SPECIFIC query - use the serviceRetriever
         if (!input.query || input.query.trim() === "") {
           console.warn("Specific service lookup called with empty query. Returning empty array.");
           return [];
         }
 
-        console.log(`Performing vector search for services with query: "${input.query}", attempting to retrieve up to 5 documents.`);
-        // The serviceRetriever is configured to search the 'services' collection using the 'embedding' field.
-        // It will return multiple documents based on similarity, up to the limit specified by 'k'.
+        console.log(`Performing SPECIFIC vector search for services with query: "${input.query}" using serviceRetriever.`);
+        
         const retrievedDocs = await ai.retrieve({
           retriever: serviceRetriever,
           query: input.query,
+          // k: 5, // You can specify the number of documents to retrieve, e.g., top 5. Genkit might have a default.
         });
-        console.log(`Retrieved ${retrievedDocs.length} documents via serviceRetriever (requested up to 5).`);
+        
+        console.log(`Retrieved ${retrievedDocs.length} documents via serviceRetriever.`);
 
         const services = retrievedDocs
           .map(doc => {
-            const data = doc.metadata as Omit<ServiceItem, 'id'> & { docId?: string }; // doc.metadata contains the fields from Firestore. docId is added by the retriever.
-            // Ensure all necessary fields are present in metadata
+            const data = doc.metadata as Omit<ServiceItem, 'id'> & { docId?: string }; 
             if (!doc.metadata?.docId || !data.name || !data.description || typeof data.availability === 'undefined') {
-              console.warn('Retrieved document is missing essential fields or docId:', doc.metadata);
+              console.warn('Retrieved document from retriever is missing essential fields or docId:', doc.metadata);
               return null;
             }
             return {
-              id: doc.metadata.docId, // Use docId from metadata as the document's ID
+              id: doc.metadata.docId, 
               name: data.name,
               description: data.description,
               availability: data.availability,
               userId: data.userId,
-              // embedding: data.embedding // embedding field itself is not usually returned by the tool to the LLM unless specifically needed.
             } as ServiceItem;
           })
-          .filter(service => service && service.availability) as ServiceItem[]; // Filter out nulls and unavailable services
+          .filter(service => service && service.availability) as ServiceItem[]; 
 
         console.log(`Mapped to ${services.length} available services after retriever and filtering.`);
         return services;
       }
     } catch (error) {
       console.error('Error in lookupServiceTool:', error);
-      return null; // Indicate error
+      return null; 
     }
   }
 );
-

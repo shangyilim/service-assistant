@@ -1,19 +1,30 @@
 
 'use server';
 
-import { db } from '@/lib/firebase';
-import { collection, addDoc, updateDoc, doc, type DocumentReference } from "firebase/firestore";
+import { initializeApp, getApps, getApp as getAdminApp, type App } from 'firebase-admin/app';
+import { getFirestore, type Firestore } from 'firebase-admin/firestore';
 import { generateEmbedding } from "@/ai/flows/generate-embedding-flow";
 import type { FaqItemFormValues } from "@/lib/schemas";
 import type { FaqItem } from "@/types";
+
+// Initialize Firebase Admin SDK
+let adminApp: App;
+let adminDb: Firestore;
+
+if (!getApps().length) {
+  adminApp = initializeApp(); // Uses GOOGLE_APPLICATION_CREDENTIALS by default
+} else {
+  adminApp = getAdminApp();
+}
+adminDb = getFirestore(adminApp);
 
 export async function createOrUpdateFaqWithEmbedding(
   formValues: FaqItemFormValues,
   userId: string,
   existingItemId?: string
 ): Promise<{ success: boolean; message: string; faqId?: string }> {
-  const faqsCollectionRef = collection(db, "faqs");
-  let docRefToUpdate: DocumentReference | null = null;
+  const faqsCollectionRef = adminDb.collection("faqs");
+  let docRefToUpdatePath: string | undefined;
 
   const baseData: Omit<FaqItem, 'id' | 'embedding' | 'userId'> = {
     question: formValues.question,
@@ -21,37 +32,46 @@ export async function createOrUpdateFaqWithEmbedding(
   };
 
   try {
+    let actualDocId: string;
+
     if (existingItemId) {
-      docRefToUpdate = doc(faqsCollectionRef, existingItemId);
-      await updateDoc(docRefToUpdate, {
+      const docRef = faqsCollectionRef.doc(existingItemId);
+      await docRef.update({
         ...baseData,
         // embedding will be reset and regenerated
       });
+      actualDocId = existingItemId;
+      docRefToUpdatePath = docRef.path;
     } else {
       const newFaqData: Omit<FaqItem, 'id' | 'embedding'> & { userId: string; embedding: null } = {
         ...baseData,
         userId: userId,
-        embedding: null,
+        embedding: null, // Initialize embedding as null
       };
-      docRefToUpdate = await addDoc(faqsCollectionRef, newFaqData);
+      const newDocRef = await faqsCollectionRef.add(newFaqData);
+      actualDocId = newDocRef.id;
+      docRefToUpdatePath = newDocRef.path;
     }
 
-    if (docRefToUpdate) {
+    if (actualDocId) {
       try {
         const embeddingInputText = `${formValues.question} ${formValues.answer}`;
         const { embedding } = await generateEmbedding({ text: embeddingInputText });
+        
         if (embedding) {
-          await updateDoc(docRefToUpdate, { embedding: embedding });
-          return { success: true, message: `FAQ ${existingItemId ? 'updated' : 'added'} and embedding generated successfully.`, faqId: docRefToUpdate.id };
+          const finalDocRef = adminDb.doc(docRefToUpdatePath!); // Use the stored path
+          await finalDocRef.update({ embedding: embedding });
+          return { success: true, message: `FAQ ${existingItemId ? 'updated' : 'added'} and embedding generated successfully.`, faqId: actualDocId };
         } else {
-           console.warn(`FAQ ${existingItemId ? 'updated' : 'added'} (ID: ${docRefToUpdate.id}), but embedding generation returned no data.`);
-          return { success: true, message: `FAQ ${existingItemId ? 'updated' : 'added'} successfully, but embedding generation failed to return data.`, faqId: docRefToUpdate.id };
+           console.warn(`FAQ ${existingItemId ? 'updated' : 'added'} (ID: ${actualDocId}), but embedding generation returned no data.`);
+          return { success: true, message: `FAQ ${existingItemId ? 'updated' : 'added'} successfully, but embedding generation failed to return data.`, faqId: actualDocId };
         }
       } catch (embeddingError: any) {
-        console.error(`Error generating or saving FAQ embedding for FAQ ID ${docRefToUpdate.id}: `, embeddingError);
-        return { success: true, message: `FAQ ${existingItemId ? 'updated' : 'added'}, but failed to generate/save embedding: ${embeddingError.message}`, faqId: docRefToUpdate.id };
+        console.error(`Error generating or saving FAQ embedding for FAQ ID ${actualDocId}: `, embeddingError);
+        return { success: true, message: `FAQ ${existingItemId ? 'updated' : 'added'}, but failed to generate/save embedding: ${embeddingError.message}`, faqId: actualDocId };
       }
     }
+    // This path should ideally not be reached if operations were successful
     return { success: false, message: "Failed to obtain document reference for FAQ operations." };
 
   } catch (error: any) {

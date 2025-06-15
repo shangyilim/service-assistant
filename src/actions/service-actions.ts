@@ -1,19 +1,30 @@
 
 'use server';
 
-import { db } from '@/lib/firebase';
-import { collection, addDoc, updateDoc, doc, type DocumentReference } from "firebase/firestore";
+import { initializeApp, getApps, getApp as getAdminApp, type App } from 'firebase-admin/app';
+import { getFirestore, type Firestore } from 'firebase-admin/firestore';
 import { generateEmbedding } from "@/ai/flows/generate-embedding-flow";
 import type { ServiceItemFormValues } from "@/lib/schemas";
 import type { ServiceItem } from "@/types";
+
+// Initialize Firebase Admin SDK
+let adminApp: App;
+let adminDb: Firestore;
+
+if (!getApps().length) {
+  adminApp = initializeApp(); // Uses GOOGLE_APPLICATION_CREDENTIALS by default
+} else {
+  adminApp = getAdminApp();
+}
+adminDb = getFirestore(adminApp);
 
 export async function createOrUpdateServiceWithEmbedding(
   formValues: ServiceItemFormValues,
   userId: string,
   existingItemId?: string
 ): Promise<{ success: boolean; message: string; serviceId?: string }> {
-  const servicesCollectionRef = collection(db, "services");
-  let docRefToUpdate: DocumentReference | null = null;
+  const servicesCollectionRef = adminDb.collection("services");
+  let docRefToUpdatePath: string | undefined;
 
   const baseData: Omit<ServiceItem, 'id' | 'embedding' | 'userId'> = {
     name: formValues.name,
@@ -22,40 +33,46 @@ export async function createOrUpdateServiceWithEmbedding(
   };
 
   try {
+    let actualDocId: string;
+
     if (existingItemId) {
-      docRefToUpdate = doc(servicesCollectionRef, existingItemId);
-      await updateDoc(docRefToUpdate, {
+      const docRef = servicesCollectionRef.doc(existingItemId);
+      await docRef.update({
         ...baseData,
         // embedding will be reset and regenerated
       });
+      actualDocId = existingItemId;
+      docRefToUpdatePath = docRef.path;
     } else {
       const newServiceData: Omit<ServiceItem, 'id' | 'embedding'> & { userId: string; embedding: null } = {
         ...baseData,
         userId: userId,
-        embedding: null,
+        embedding: null, // Initialize embedding as null
       };
-      docRefToUpdate = await addDoc(servicesCollectionRef, newServiceData);
+      const newDocRef = await servicesCollectionRef.add(newServiceData);
+      actualDocId = newDocRef.id;
+      docRefToUpdatePath = newDocRef.path;
     }
 
-    if (docRefToUpdate) {
+    if (actualDocId) {
       try {
         const embeddingInputText = `${formValues.name} ${formValues.description}`;
         const { embedding } = await generateEmbedding({ text: embeddingInputText });
+
         if (embedding) {
-          await updateDoc(docRefToUpdate, { embedding: embedding });
-          return { success: true, message: `Service ${existingItemId ? 'updated' : 'added'} and embedding generated successfully.`, serviceId: docRefToUpdate.id };
+          const finalDocRef = adminDb.doc(docRefToUpdatePath!); // Use the stored path
+          await finalDocRef.update({ embedding: embedding });
+          return { success: true, message: `Service ${existingItemId ? 'updated' : 'added'} and embedding generated successfully.`, serviceId: actualDocId };
         } else {
-          // Log this issue, but the service itself was saved.
-          console.warn(`Service ${existingItemId ? 'updated' : 'added'} (ID: ${docRefToUpdate.id}), but embedding generation returned no data.`);
-          return { success: true, message: `Service ${existingItemId ? 'updated' : 'added'} successfully, but embedding generation failed to return data.`, serviceId: docRefToUpdate.id };
+          console.warn(`Service ${existingItemId ? 'updated' : 'added'} (ID: ${actualDocId}), but embedding generation returned no data.`);
+          return { success: true, message: `Service ${existingItemId ? 'updated' : 'added'} successfully, but embedding generation failed to return data.`, serviceId: actualDocId };
         }
       } catch (embeddingError: any) {
-        console.error(`Error generating or saving service embedding for service ID ${docRefToUpdate.id}: `, embeddingError);
-        // Service was saved/updated, but embedding failed.
-        return { success: true, message: `Service ${existingItemId ? 'updated' : 'added'}, but failed to generate/save embedding: ${embeddingError.message}`, serviceId: docRefToUpdate.id };
+        console.error(`Error generating or saving service embedding for service ID ${actualDocId}: `, embeddingError);
+        return { success: true, message: `Service ${existingItemId ? 'updated' : 'added'}, but failed to generate/save embedding: ${embeddingError.message}`, serviceId: actualDocId };
       }
     }
-    // This path should ideally not be reached if addDoc/doc succeeded.
+    // This path should ideally not be reached if operations were successful
     return { success: false, message: "Failed to obtain document reference for service operations." };
 
   } catch (error: any) {

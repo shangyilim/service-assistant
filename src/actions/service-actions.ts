@@ -2,7 +2,7 @@
 'use server';
 
 import { initializeApp, getApps, getApp as getAdminApp, type App } from 'firebase-admin/app';
-import { getFirestore, type Firestore } from 'firebase-admin/firestore';
+import { getFirestore, type Firestore, FieldValue } from 'firebase-admin/firestore';
 import { generateEmbedding } from "@/ai/flows/generate-embedding-flow";
 import type { ServiceItemFormValues } from "@/lib/schemas";
 import type { ServiceItem } from "@/types";
@@ -61,7 +61,7 @@ export async function createOrUpdateServiceWithEmbedding(
 
         if (embedding) {
           const finalDocRef = adminDb.doc(docRefToUpdatePath!); // Use the stored path
-          await finalDocRef.update({ embedding: embedding });
+          await finalDocRef.update({ embedding: FieldValue.vector(embedding) });
           return { success: true, message: `Service ${existingItemId ? 'updated' : 'added'} and embedding generated successfully.`, serviceId: actualDocId };
         } else {
           console.warn(`Service ${existingItemId ? 'updated' : 'added'} (ID: ${actualDocId}), but embedding generation returned no data.`);

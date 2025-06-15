@@ -39,16 +39,13 @@ import { db } from "@/lib/firebase";
 import { useAuth } from "@/hooks/use-auth";
 import {
   collection,
-  addDoc,
-  updateDoc,
-  deleteDoc,
+  deleteDoc, // Keep deleteDoc for client-side initiated delete
   doc,
   query,
   onSnapshot,
   orderBy,
-  type DocumentReference,
 } from "firebase/firestore";
-import { generateEmbedding } from "@/ai/flows/generate-embedding-flow";
+import { createOrUpdateFaqWithEmbedding } from '@/actions/faq-actions';
 
 
 export function FaqDataTableClient() {
@@ -91,53 +88,20 @@ export function FaqDataTableClient() {
       return;
     }
 
-    let docRefToUpdate: DocumentReference | null = null;
-    let isNewDoc = false;
+    toast({ title: "Saving FAQ", description: "Processing your request...", duration: 10000 });
 
-    const dataToSave: Partial<FaqItem> & { userId?: string } = {
-      question: formValues.question,
-      answer: formValues.answer,
-      embedding: null, // Initialize embedding as null
-    };
+    const result = await createOrUpdateFaqWithEmbedding(
+      formValues,
+      user.id,
+      editingFaqItem?.id
+    );
 
-    try {
-      if (editingFaqItem && editingFaqItem.id) {
-        const itemDocRef = doc(faqsCollectionRef, editingFaqItem.id);
-        // When updating, we only update question, answer, and reset embedding. UserId is not changed.
-        await updateDoc(itemDocRef, { 
-            question: formValues.question,
-            answer: formValues.answer,
-            embedding: null, // Reset embedding, will be regenerated
-        });
-        docRefToUpdate = itemDocRef;
-        toast({ title: "Success", description: "FAQ updated successfully." });
-      } else {
-        isNewDoc = true;
-        dataToSave.userId = user.id; // Add userId only for new FAQs
-        // Initialize with embedding: null for new docs
-        const docRef = await addDoc(faqsCollectionRef, { ...dataToSave, embedding: null });
-        docRefToUpdate = docRef;
-        toast({ title: "Success", description: "FAQ added successfully." });
-      }
+    if (result.success) {
+      toast({ title: "Success", description: result.message });
       setEditingFaqItem(null);
       setIsFaqFormOpen(false);
-
-      
-      if (docRefToUpdate) { 
-        toast({ title: "Generating Embedding", description: "Please wait...", duration: 3000 });
-        try {
-          const embeddingData = await generateEmbedding({ text: `${formValues.question} ${formValues.answer}` });
-          await updateDoc(docRefToUpdate, { embedding: embeddingData.embedding });
-          toast({ title: "Embedding Generated", description: "FAQ embedding saved successfully." });
-        } catch (embeddingError) {
-          console.error("Error generating or saving embedding: ", embeddingError);
-          toast({ title: "Embedding Error", description: "Could not generate or save FAQ embedding.", variant: "destructive" });
-        }
-      }
-
-    } catch (error) {
-      console.error("Error saving FAQ: ", error);
-      toast({ title: "Error", description: "Could not save FAQ.", variant: "destructive" });
+    } else {
+      toast({ title: "Error", description: result.message, variant: "destructive" });
     }
   };
 

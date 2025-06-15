@@ -15,12 +15,12 @@ if (!getApps().length) {
 }
 const firestore = getFirestore(getAdminApp());
 
-export const serviceRetriever = defineFirestoreRetriever<ServiceItem>(ai, {
+export const serviceRetriever = defineFirestoreRetriever(ai, {
   name: 'serviceRetriever',
   firestore,
   collection: 'services',
   contentField: 'description', // Primary text field for the document
   vectorField: 'embedding',    // Field containing vector embeddings
-  embedder: ai.embedder('googleai/text-embedding-004'), // Embedder used for querying
+  embedder: 'googleai/text-embedding-004', // Embedder used for querying
   distanceMeasure: 'COSINE',
 });

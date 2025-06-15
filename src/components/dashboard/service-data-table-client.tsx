@@ -40,17 +40,13 @@ import { db } from "@/lib/firebase";
 import { useAuth } from "@/hooks/use-auth";
 import {
   collection,
-  addDoc,
-  updateDoc,
-  deleteDoc,
+  deleteDoc, // Keep deleteDoc for client-side initiated delete
   doc,
   query,
   onSnapshot,
   orderBy,
-  where, // Import where for filtering
-  type DocumentReference,
 } from "firebase/firestore";
-import { generateEmbedding } from "@/ai/flows/generate-embedding-flow";
+import { createOrUpdateServiceWithEmbedding } from '@/actions/service-actions';
 
 
 export function ServiceDataTableClient() {
@@ -63,7 +59,6 @@ export function ServiceDataTableClient() {
   const { toast } = useToast();
   const { user, loading: authLoading } = useAuth();
 
-  // Services are now in a top-level collection
   const servicesCollectionRef = useMemo(() => collection(db, "services"), []);
 
   useEffect(() => {
@@ -79,7 +74,6 @@ export function ServiceDataTableClient() {
     }
 
     setIsLoadingData(true);
-    // Query for services created
     const q = query(
       servicesCollectionRef, 
       orderBy("name")
@@ -94,8 +88,8 @@ export function ServiceDataTableClient() {
             name: data.name,
             description: data.description,
             availability: typeof data.availability === 'boolean' ? data.availability : true,
-            userId: data.userId, // Include userId
-            embedding: data.embedding, // Include embedding
+            userId: data.userId,
+            embedding: data.embedding,
           } as ServiceItem;
         });
         setServices(items);
@@ -117,58 +111,20 @@ export function ServiceDataTableClient() {
       return;
     }
 
-    let docRefToUpdate: DocumentReference | null = null;
-    const baseData = {
-      name: formValues.name,
-      description: formValues.description,
-      availability: formValues.availability,
-    };
+    toast({ title: "Saving Service", description: "Processing your request...", duration: 10000 }); // Longer duration for server action
 
-    try {
-      if (editingServiceItem && editingServiceItem.id) {
-        const itemDocRef = doc(servicesCollectionRef, editingServiceItem.id);
-        // For updates, update name, desc, availability, and reset embedding. userId is not changed.
-        await updateDoc(itemDocRef, {
-            ...baseData,
-            embedding: null, // Reset embedding, will be regenerated
-        });
-        docRefToUpdate = itemDocRef;
-        toast({ title: "Success", description: "Service updated successfully." });
-      } else {
-        // New service
-        const newServiceData = {
-            ...baseData,
-            userId: user.id, // Add userId only for new services
-            embedding: null, // Initialize embedding as null for new docs
-        };
-        const docRef = await addDoc(servicesCollectionRef, newServiceData);
-        docRefToUpdate = docRef;
-        toast({ title: "Success", description: "Service added successfully." });
-      }
+    const result = await createOrUpdateServiceWithEmbedding(
+      formValues,
+      user.id,
+      editingServiceItem?.id
+    );
+
+    if (result.success) {
+      toast({ title: "Success", description: result.message });
       setEditingServiceItem(null);
       setIsServiceFormOpen(false);
-
-      // Generate and save embedding
-      if (docRefToUpdate) {
-        toast({ title: "Generating Embedding", description: "Please wait for service embedding...", duration: 3000 });
-        try {
-          const embeddingInputText = `${formValues.name} ${formValues.description}`;
-          const { embedding } = await generateEmbedding({ text: embeddingInputText });
-          if (embedding) {
-            await updateDoc(docRefToUpdate, { embedding: embedding });
-            toast({ title: "Embedding Generated", description: "Service embedding saved successfully." });
-          } else {
-            throw new Error("Embedding generation returned no data for service.");
-          }
-        } catch (embeddingError) {
-          console.error("Error generating or saving service embedding: ", embeddingError);
-          toast({ title: "Service Embedding Error", description: "Could not generate or save service embedding.", variant: "destructive" });
-        }
-      }
-
-    } catch (error) {
-      console.error("Error saving service: ", error);
-      toast({ title: "Error", description: "Could not save service.", variant: "destructive" });
+    } else {
+      toast({ title: "Error", description: result.message, variant: "destructive" });
     }
   };
 
@@ -358,4 +314,3 @@ export function ServiceDataTableClient() {
     </div>
   );
 }
-

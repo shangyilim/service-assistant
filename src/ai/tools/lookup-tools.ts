@@ -119,7 +119,10 @@ export const lookupServiceTool = ai.defineTool(
         console.log(`Performing vector search for services with query: "${input.query}", attempting to retrieve up to 5 documents.`);
         // The serviceRetriever is configured to search the 'services' collection using the 'embedding' field.
         // It will return multiple documents based on similarity, up to the limit specified by 'k'.
-        const retrievedDocs = await serviceRetriever.retrieve(input.query, { k: 5 });
+        const retrievedDocs = await ai.retrieve({
+          retriever: serviceRetriever,
+          query: input.query,
+        });
         console.log(`Retrieved ${retrievedDocs.length} documents via serviceRetriever (requested up to 5).`);
 
         const services = retrievedDocs

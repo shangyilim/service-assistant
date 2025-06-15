@@ -23,4 +23,12 @@ export const serviceRetriever = defineFirestoreRetriever(ai, {
   vectorField: 'embedding',    // Field containing vector embeddings
   embedder: 'googleai/text-embedding-004', // Embedder used for querying
   distanceMeasure: 'COSINE',
+  metadataFields: (snapshot)=> {
+    const data = snapshot.data() as ServiceItem;
+    return {
+      name: data.name,
+      description: data.description,
+      id: snapshot.id,
+    };
+  }
 });

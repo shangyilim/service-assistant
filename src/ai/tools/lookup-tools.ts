@@ -1,3 +1,4 @@
+
 /**
  * @fileOverview Defines Genkit tools for looking up FAQs and Services.
  *
@@ -85,7 +86,7 @@ export type LookupServiceOutput = z.infer<typeof LookupServiceOutputSchema>;
 export const lookupServiceTool = ai.defineTool(
   {
     name: 'lookupServiceTool',
-    description: 'Looks up available services. Use GENERIC queryType to list all services, or SPECIFIC with a query to find particular services.',
+    description: 'Looks up available services. Use GENERIC queryType to list all services, or SPECIFIC with a query to find particular services. Specific queries use vector search on service embeddings.',
     inputSchema: LookupServiceInputSchema,
     outputSchema: LookupServiceOutputSchema,
   },
@@ -115,27 +116,30 @@ export const lookupServiceTool = ai.defineTool(
           return [];
         }
 
-        console.log(`Performing vector search for services with query: "${input.query}"`);
+        console.log(`Performing vector search for services with query: "${input.query}", attempting to retrieve up to 5 documents.`);
+        // The serviceRetriever is configured to search the 'services' collection using the 'embedding' field.
+        // It will return multiple documents based on similarity, up to the limit specified by 'k'.
         const retrievedDocs = await serviceRetriever.retrieve(input.query, { k: 5 });
-        console.log(`Retrieved ${retrievedDocs.length} documents via serviceRetriever.`);
+        console.log(`Retrieved ${retrievedDocs.length} documents via serviceRetriever (requested up to 5).`);
 
         const services = retrievedDocs
           .map(doc => {
-            const data = doc.metadata as Omit<ServiceItem, 'id'> & { docId?: string };
+            const data = doc.metadata as Omit<ServiceItem, 'id'> & { docId?: string }; // doc.metadata contains the fields from Firestore. docId is added by the retriever.
             // Ensure all necessary fields are present in metadata
             if (!doc.metadata?.docId || !data.name || !data.description || typeof data.availability === 'undefined') {
-              console.warn('Retrieved document is missing essential fields:', doc.metadata);
+              console.warn('Retrieved document is missing essential fields or docId:', doc.metadata);
               return null;
             }
             return {
-              id: doc.metadata.docId,
+              id: doc.metadata.docId, // Use docId from metadata as the document's ID
               name: data.name,
               description: data.description,
               availability: data.availability,
               userId: data.userId,
+              // embedding: data.embedding // embedding field itself is not usually returned by the tool to the LLM unless specifically needed.
             } as ServiceItem;
           })
-          .filter(service => service && service.availability) as ServiceItem[]; // Filter out nulls and unavailable
+          .filter(service => service && service.availability) as ServiceItem[]; // Filter out nulls and unavailable services
 
         console.log(`Mapped to ${services.length} available services after retriever and filtering.`);
         return services;
@@ -146,3 +150,4 @@ export const lookupServiceTool = ai.defineTool(
     }
   }
 );
+

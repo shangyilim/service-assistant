@@ -1,5 +1,4 @@
 
-'use server';
 /**
  * @fileOverview Defines Genkit tools for looking up FAQs and Services.
  *

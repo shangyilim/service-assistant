@@ -14,9 +14,9 @@ import {z} from 'zod';
 const InterpretMessageInputSchema = z.object({
   userMessage: z.string().describe('The message received from the user.'),
 });
-export type InterpretMessageInput = z.infer<typeof InterpretMessageInputSchema>;
+ type InterpretMessageInput = z.infer<typeof InterpretMessageInputSchema>;
 
-export const InterpretationResultSchema = z.object({
+ const InterpretationResultSchema = z.object({
   action: z.enum(['lookupFaq', 'lookupServiceGeneric', 'lookupServiceSpecific', 'directResponse', 'unclear'])
     .describe("The primary action category derived from the user's message. 'lookupFaq' for FAQ searches, 'lookupServiceGeneric' for general service inquiries, 'lookupServiceSpecific' for inquiries about a particular service, 'directResponse' for simple replies like greetings, and 'unclear' if the intent cannot be determined."),
   query: z.string().optional()
@@ -24,7 +24,7 @@ export const InterpretationResultSchema = z.object({
   responseText: z.string().optional()
     .describe("A pre-formulated text response. For 'directResponse', this is the full reply. For 'unclear', it's a message asking for clarification. For lookup actions, it can be an acknowledgment (e.g., 'Let me check that for you') or empty if the tool's result will form the entire response."),
 });
-export type InterpretationResult = z.infer<typeof InterpretationResultSchema>;
+ type InterpretationResult = z.infer<typeof InterpretationResultSchema>;
 
 const interpretPrompt = ai.definePrompt({
   name: 'interpretUserMessagePrompt',
@@ -70,7 +70,11 @@ Output: { "action": "unclear", "responseText": "I'm not sure I can help with tha
 `,
 });
 
-export const interpretMessageFlow = ai.defineFlow(
+export async function interpretMessage(input: InterpretMessageInput): Promise<InterpretationResult> {
+  return interpretMessageFlow(input);
+}
+
+ const interpretMessageFlow = ai.defineFlow(
   {
     name: 'interpretMessageFlow',
     inputSchema: InterpretMessageInputSchema,
@@ -83,7 +87,7 @@ export const interpretMessageFlow = ai.defineFlow(
         return {
             action: 'unclear',
             responseText: "I'm having a little trouble understanding right now. Please try rephrasing."
-        };
+        } as InterpretationResult;
     }
     return output;
   }

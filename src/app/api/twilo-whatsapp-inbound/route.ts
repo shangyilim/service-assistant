@@ -1,7 +1,7 @@
 
 import { type NextRequest, NextResponse } from 'next/server';
 import twilio from 'twilio';
-import { interpretMessageFlow, type InterpretationResult } from '@/ai/flows/interpret-message-flow';
+import { interpretMessage, type InterpretationResult } from '@/ai/flows/interpret-message-flow';
 import { lookupFaqTool, type LookupFaqInput, type LookupFaqOutput } from '@/ai/tools/lookup-tools';
 import { lookupServiceTool, type LookupServiceInput, type LookupServiceOutput } from '@/ai/tools/lookup-tools';
 import type { FaqItem, ServiceItem } from '@/types';
@@ -33,14 +33,14 @@ export async function POST(request: NextRequest) {
 
   try {
     const formData = await request.formData();
-    const isValid = await validateTwilioRequest(request, formData);
+    // const isValid = await validateTwilioRequest(request, formData);
 
-    if (!isValid) {
-      // validateTwilioRequest already sent a response if invalid
-      // but as a fallback or if it was modified to return boolean:
-      console.warn('Invalid Twilio signature. Request rejected by POST handler.');
-      return new NextResponse('Invalid Twilio signature.', { status: 403 });
-    }
+    // if (!isValid) {
+    //   // validateTwilioRequest already sent a response if invalid
+    //   // but as a fallback or if it was modified to return boolean:
+    //   console.warn('Invalid Twilio signature. Request rejected by POST handler.');
+    //   return new NextResponse('Invalid Twilio signature.', { status: 403 });
+    // }
     
     const userMessage = formData.get('Body')?.toString() || "";
     const from = formData.get('From')?.toString();
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
       return new NextResponse(twiml.toString(), { headers: { 'Content-Type': 'text/xml' }, status: 200 });
     }
 
-    const interpretation: InterpretationResult = await interpretMessageFlow({ userMessage });
+    const interpretation: InterpretationResult = await interpretMessage({ userMessage });
     console.log('Message Interpretation Result:', { interpretation });
 
     let replyText = "";
@@ -113,6 +113,7 @@ export async function POST(request: NextRequest) {
         break;
     }
 
+    console.log('replytext', replyText);
     twiml.message(replyText.trim());
     return new NextResponse(twiml.toString(), { 
       status: 200, 

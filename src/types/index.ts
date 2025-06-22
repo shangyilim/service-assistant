@@ -30,6 +30,7 @@ export interface AppointmentItem {
   dateTime: string; // e.g., "2024-07-30 14:00"
   location?: string;
   notes?: string;
+  userId?: string;
 }
 
 export interface ServiceItem {
@@ -40,4 +41,3 @@ export interface ServiceItem {
   userId?: string; // ID of the user who created the service
   embedding?: number[] | null | undefined; // For storing generated embeddings
 }
-

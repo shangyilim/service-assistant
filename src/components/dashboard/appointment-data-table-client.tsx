@@ -59,19 +59,22 @@ export function AppointmentDataTableClient() {
   const { user, loading: authLoading } = useAuth();
 
   const appointmentsCollectionRef = useMemo(() => {
-    if (!user) return null;
-    return collection(db, "users", user.id, "appointments");
-  }, [user]);
+    // Point to the top-level 'appointments' collection
+    return collection(db, "appointments");
+  }, []);
 
   useEffect(() => {
-    if (!appointmentsCollectionRef) {
+    if (authLoading || !user) {
       setAppointments([]);
       setIsLoadingData(false);
       return;
     }
 
     setIsLoadingData(true);
-    const q = query(appointmentsCollectionRef, orderBy("dateTime")); // Order by dateTime
+    // This query will now fetch all appointments from the top-level collection.
+    // If you need to filter by user, you would add a where clause like:
+    // where("userId", "==", user.id)
+    const q = query(appointmentsCollectionRef, orderBy("dateTime"));
     const unsubscribe = onSnapshot(q, 
       (querySnapshot) => {
         const items = querySnapshot.docs.map(doc => ({
@@ -89,10 +92,10 @@ export function AppointmentDataTableClient() {
     );
 
     return () => unsubscribe();
-  }, [appointmentsCollectionRef, toast]);
+  }, [appointmentsCollectionRef, toast, user, authLoading]);
 
   const handleSaveAppointmentItem = async (formValues: AppointmentItemFormValues) => {
-    if (!appointmentsCollectionRef) {
+    if (!user) {
       toast({ title: "Error", description: "User not authenticated or collection not available.", variant: "destructive" });
       return;
     }
@@ -103,7 +106,8 @@ export function AppointmentDataTableClient() {
       phoneNumber: formValues.phoneNumber,
       dateTime: formValues.dateTime,
       location: formValues.location || "", 
-      notes: formValues.notes || "",     
+      notes: formValues.notes || "",
+      userId: user.id, // Add userId to the appointment document
     };
 
     try {
@@ -138,7 +142,12 @@ export function AppointmentDataTableClient() {
   };
 
   const handleDeleteAppointmentItem = async () => {
-    if (!appointmentItemToDelete || !appointmentItemToDelete.id || !appointmentsCollectionRef) return;
+    if (!user) {
+      toast({ title: "Error", description: "You must be logged in to delete appointments.", variant: "destructive" });
+      setAppointmentItemToDelete(null);
+      return;
+    }
+    if (!appointmentItemToDelete || !appointmentItemToDelete.id) return;
 
     try {
       const itemDocRef = doc(appointmentsCollectionRef, appointmentItemToDelete.id);

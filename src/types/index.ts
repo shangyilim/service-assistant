@@ -27,7 +27,7 @@ export interface AppointmentItem {
   title: string;
   name: string; // Added client name
   phoneNumber: string; // Added client phone number
-  dateTime: string; // e.g., "2024-07-30 14:00"
+  dateTime: Date; // e.g., "2024-07-30 14:00"
   location?: string;
   notes?: string;
   userId?: string;

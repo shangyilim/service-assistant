@@ -26,7 +26,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { AppointmentItemSchema, AppointmentItemFormValues } from "@/lib/schemas";
 import type { AppointmentItem } from "@/types";
 import React, { useEffect } from "react";
-import { PlusCircle, Edit3 } from "lucide-react";
+import { PlusCircle, Edit3, Calendar as CalendarIcon } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
+
 
 interface AppointmentFormDialogProps {
   item?: AppointmentItem | null; // For editing
@@ -39,25 +44,34 @@ interface AppointmentFormDialogProps {
 export function AppointmentFormDialog({ item, onSave, children, open, onOpenChange }: AppointmentFormDialogProps) {
   const form = useForm<AppointmentItemFormValues>({
     resolver: zodResolver(AppointmentItemSchema),
-    defaultValues: item || {
+    defaultValues: {
       title: "",
       name: "",
       phoneNumber: "",
-      dateTime: "",
+      dateTime: undefined,
       location: "",
       notes: "",
     },
   });
 
   useEffect(() => {
-    if (item) {
-      form.reset({
-        ...item,
-        location: item.location || "", // Ensure optional fields are handled
-        notes: item.notes || "",
-      });
-    } else {
-      form.reset({ title: "", name: "", phoneNumber: "", dateTime: "", location: "", notes: "" });
+    if (open) {
+      if (item) {
+        form.reset({
+          ...item,
+          location: item.location || "",
+          notes: item.notes || "",
+        });
+      } else {
+        form.reset({
+          title: "",
+          name: "",
+          phoneNumber: "",
+          dateTime: undefined,
+          location: "",
+          notes: "",
+        });
+      }
     }
   }, [item, form, open]);
 
@@ -128,11 +142,57 @@ export function AppointmentFormDialog({ item, onSave, children, open, onOpenChan
               control={form.control}
               name="dateTime"
               render={({ field }) => (
-                <FormItem>
+                <FormItem className="flex flex-col">
                   <FormLabel>Date & Time</FormLabel>
-                  <FormControl>
-                    <Input placeholder="YYYY-MM-DD HH:MM" {...field} />
-                  </FormControl>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant={"outline"}
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
+                            !field.value && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {field.value ? (
+                            format(field.value, "PPP p")
+                          ) : (
+                            <span>Pick a date and time</span>
+                          )}
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar
+                        mode="single"
+                        selected={field.value}
+                        onSelect={(day) => {
+                           if (!day) return;
+                           const newDate = field.value ? new Date(field.value) : new Date();
+                           newDate.setFullYear(day.getFullYear(), day.getMonth(), day.getDate());
+                           field.onChange(newDate);
+                        }}
+                        initialFocus
+                      />
+                       <div className="p-3 border-t border-border">
+                          <Input
+                            type="time"
+                            className="w-full"
+                            value={field.value ? format(field.value, "HH:mm") : ""}
+                            onChange={(e) => {
+                                const time = e.target.value;
+                                if (!time) return;
+                                const [hours, minutes] = time.split(':').map(Number);
+                                const newDate = field.value ? new Date(field.value) : new Date();
+                                newDate.setHours(hours);
+                                newDate.setMinutes(minutes);
+                                field.onChange(newDate);
+                            }}
+                            />
+                        </div>
+                    </PopoverContent>
+                  </Popover>
                   <FormMessage />
                 </FormItem>
               )}

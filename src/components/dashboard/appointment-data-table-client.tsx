@@ -46,7 +46,9 @@ import {
   query,
   onSnapshot,
   orderBy,
+  type Timestamp,
 } from "firebase/firestore";
+import { format } from "date-fns";
 
 export function AppointmentDataTableClient() {
   const [appointments, setAppointments] = useState<AppointmentItem[]>([]);
@@ -77,10 +79,15 @@ export function AppointmentDataTableClient() {
     const q = query(appointmentsCollectionRef, orderBy("dateTime"));
     const unsubscribe = onSnapshot(q, 
       (querySnapshot) => {
-        const items = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-        } as AppointmentItem));
+        const items = querySnapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            ...data,
+            // Firestore timestamps need to be converted to JS Date objects
+            dateTime: (data.dateTime as Timestamp).toDate(),
+          } as AppointmentItem;
+        });
         setAppointments(items);
         setIsLoadingData(false);
       }, 
@@ -100,14 +107,10 @@ export function AppointmentDataTableClient() {
       return;
     }
 
+    // The dateTime is already a Date object from the form
     const dataToSave = {
-      title: formValues.title,
-      name: formValues.name,
-      phoneNumber: formValues.phoneNumber,
-      dateTime: formValues.dateTime,
-      location: formValues.location || "", 
-      notes: formValues.notes || "",
-      userId: user.id, // Add userId to the appointment document
+      ...formValues,
+      userId: user.id,
     };
 
     try {
@@ -170,7 +173,7 @@ export function AppointmentDataTableClient() {
       item.phoneNumber.toLowerCase().includes(lowerSearchTerm) ||
       (item.location && item.location.toLowerCase().includes(lowerSearchTerm)) ||
       (item.notes && item.notes.toLowerCase().includes(lowerSearchTerm)) ||
-      item.dateTime.toLowerCase().includes(lowerSearchTerm)
+      format(item.dateTime, "PPP p").toLowerCase().includes(lowerSearchTerm)
     );
   }, [appointments, appointmentSearchTerm]);
 
@@ -246,7 +249,7 @@ export function AppointmentDataTableClient() {
                       <TableCell className="font-medium align-top">{item.title}</TableCell>
                       <TableCell className="align-top">{item.name}</TableCell>
                       <TableCell className="align-top">{item.phoneNumber}</TableCell>
-                      <TableCell className="align-top">{item.dateTime}</TableCell>
+                      <TableCell className="align-top">{format(item.dateTime, "PPP p")}</TableCell>
                       <TableCell className="align-top whitespace-pre-wrap">{item.location || '-'}</TableCell>
                       <TableCell className="align-top whitespace-pre-wrap">{item.notes || '-'}</TableCell>
                       <TableCell className="text-right align-top">

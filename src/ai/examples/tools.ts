@@ -117,28 +117,23 @@ export const upcomingHolidays = ai.defineTool(
 );
 
 
-export const collectCustomerDetail = ai.defineTool(
+
+export const checkAppointmentAvailability = ai.defineTool(
   {
-    name: 'collectCustomerDetail',
-    description: 'saves the information of a customer before booking an appointment',
+    name: 'checkAppointmentAvailability',
+    description: 'checks to see if there is availability for an appointment.',
     inputSchema: z.object({
-      customerName: z.string().describe('customer name'),
+      service: z.string().optional().describe('the service for the appointment'),
+      date: z
+        .string().optional()
+        .describe('date of the appointment in YYYY-MM-DD, or as relative time such as tomorrow, next wednesday, day after tomorrow, following friday and resolve this into YYYY-MM-DD based on today date'),
+      time: z.string().optional().describe('time of the appointment in HH:mm'),
     }),
   },
-  async ({ customerName }, userState) => {
+  async ({ service, date, time }) => {
 
-    const agentState = userState.context.state as AgentState ;
-    console.log('what is agentState in collectCustomerDetailtools', agentState, userState.context);
-    
-    const adminApp = getFirebaseAdminApp();
-    const db = getFirestore(adminApp);
 
-    if (agentState.phoneNumber) {
-      await db.collection('customers').doc(agentState.phoneNumber).set({ customerName });
-    }
-
-    console.log(`Customer ${customerName} saved with phone number ${agentState.phoneNumber}`);
-    return { success: true };
+    return true;
   }
 );
 
@@ -146,8 +141,9 @@ export const collectCustomerDetail = ai.defineTool(
 export const makeAppointment = ai.defineTool(
   {
     name: 'makeAppointment',
-    description: 'creates an appointment for a customer. Do not call this tool if you determine all the inputs needed to create an appointment.',
+    description: 'Ensure that checkAppointment is called first for the selected date and time. creates an appointment for a customer. Do not call this tool if you determine all the inputs needed to create an appointment.',
     inputSchema: z.object({
+      available: z.boolean().describe('result of whether the booking is available via the checkAppointmentAvailability tool'),
       customerName: z.string().optional().describe('customer name'),
       service: z.string().optional().describe('the service for the appointment'),
       date: z

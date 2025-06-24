@@ -15,12 +15,12 @@
  */
 
 import {ai} from '@/ai/genkit';
-import { collectCustomerDetail, makeAppointment } from './tools';
+import { checkAppointmentAvailability, makeAppointment } from './tools';
 import { agentDescription } from './util';
 import { lookupServiceTool } from '../tools/lookup-tools';
 import { z } from 'zod';
 
-const tools = [makeAppointment, 'routingAgent'];
+const tools = [checkAppointmentAvailability, makeAppointment, 'routingAgent'];
 const specialization = 'appointment';
 
 const toolNames: string[] = tools.map((item) => {
@@ -40,9 +40,11 @@ export const appointmentAgent = ai.definePrompt(
 You are a friendly business customer appointment service agent.
 A user has been referred to you to handle a ${specialization}-related concern. 
 Your primary goal is to assist customer in making, updating, cancelling appointments
+- Always ask for the appointment availability first before making an appointment use checkAppointmentAvailability tool to help.
+- If there is availability, then proceed to make an appointment.
 - If you are unclear about any of the fields required to make an appointment, request clarification before using the tool.
 - If the parent asks about anything other than appointment related concerns that you can handle, transfer to the routing agent.
-- respond always with whether the tool is called and what is the tool input. example 
+- respond always with whether the tool is called and what is the tool input. 
   
  {{ userContext @state }}
  `,

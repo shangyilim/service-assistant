@@ -48,7 +48,9 @@ export function AppointmentFormDialog({ item, onSave, children, open, onOpenChan
       title: "",
       name: "",
       phoneNumber: "",
-      dateTime: undefined,
+      date: undefined,
+      startTime: "",
+      endTime: "",
       location: "",
       notes: "",
     },
@@ -67,7 +69,9 @@ export function AppointmentFormDialog({ item, onSave, children, open, onOpenChan
           title: "",
           name: "",
           phoneNumber: "",
-          dateTime: undefined,
+          date: undefined,
+          startTime: "",
+          endTime: "",
           location: "",
           notes: "",
         });
@@ -140,10 +144,10 @@ export function AppointmentFormDialog({ item, onSave, children, open, onOpenChan
             />
             <FormField
               control={form.control}
-              name="dateTime"
+              name="date"
               render={({ field }) => (
                 <FormItem className="flex flex-col">
-                  <FormLabel>Date & Time</FormLabel>
+                  <FormLabel>Date</FormLabel>
                   <Popover>
                     <PopoverTrigger asChild>
                       <FormControl>
@@ -156,9 +160,9 @@ export function AppointmentFormDialog({ item, onSave, children, open, onOpenChan
                         >
                           <CalendarIcon className="mr-2 h-4 w-4" />
                           {field.value ? (
-                            format(field.value, "PPP p")
+                            format(field.value, "PPP")
                           ) : (
-                            <span>Pick a date and time</span>
+                            <span>Pick a date</span>
                           )}
                         </Button>
                       </FormControl>
@@ -167,36 +171,43 @@ export function AppointmentFormDialog({ item, onSave, children, open, onOpenChan
                       <Calendar
                         mode="single"
                         selected={field.value}
-                        onSelect={(day) => {
-                           if (!day) return;
-                           const newDate = field.value ? new Date(field.value) : new Date();
-                           newDate.setFullYear(day.getFullYear(), day.getMonth(), day.getDate());
-                           field.onChange(newDate);
-                        }}
+                        onSelect={field.onChange}
                         initialFocus
                       />
-                       <div className="p-3 border-t border-border">
-                          <Input
-                            type="time"
-                            className="w-full"
-                            value={field.value ? format(field.value, "HH:mm") : ""}
-                            onChange={(e) => {
-                                const time = e.target.value;
-                                if (!time) return;
-                                const [hours, minutes] = time.split(':').map(Number);
-                                const newDate = field.value ? new Date(field.value) : new Date();
-                                newDate.setHours(hours);
-                                newDate.setMinutes(minutes);
-                                field.onChange(newDate);
-                            }}
-                            />
-                        </div>
                     </PopoverContent>
                   </Popover>
                   <FormMessage />
                 </FormItem>
               )}
             />
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="startTime"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Start Time</FormLabel>
+                    <FormControl>
+                      <Input type="time" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="endTime"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>End Time</FormLabel>
+                    <FormControl>
+                      <Input type="time" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
             <FormField
               control={form.control}
               name="location"

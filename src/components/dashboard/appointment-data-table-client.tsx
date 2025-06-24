@@ -22,7 +22,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { AppointmentFormDialog } from "./appointment-form-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { MoreHorizontal, PlusCircle, Trash2, Edit3, Search, Loader2, CalendarDays, CalendarPlus, User, Phone } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Trash2, Edit3, Search, Loader2, CalendarDays, CalendarPlus, User, Phone, Clock } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   AlertDialog,
@@ -76,7 +76,7 @@ export function AppointmentDataTableClient() {
     // This query will now fetch all appointments from the top-level collection.
     // If you need to filter by user, you would add a where clause like:
     // where("userId", "==", user.id)
-    const q = query(appointmentsCollectionRef, orderBy("dateTime"));
+    const q = query(appointmentsCollectionRef, orderBy("date"));
     const unsubscribe = onSnapshot(q, 
       (querySnapshot) => {
         const items = querySnapshot.docs.map(doc => {
@@ -85,7 +85,7 @@ export function AppointmentDataTableClient() {
             id: doc.id,
             ...data,
             // Firestore timestamps need to be converted to JS Date objects
-            dateTime: (data.dateTime as Timestamp).toDate(),
+            date: (data.date as Timestamp).toDate(),
           } as AppointmentItem;
         });
         setAppointments(items);
@@ -107,7 +107,7 @@ export function AppointmentDataTableClient() {
       return;
     }
 
-    // The dateTime is already a Date object from the form
+    // The date is already a Date object from the form
     const dataToSave = {
       ...formValues,
       userId: user.id,
@@ -173,7 +173,7 @@ export function AppointmentDataTableClient() {
       item.phoneNumber.toLowerCase().includes(lowerSearchTerm) ||
       (item.location && item.location.toLowerCase().includes(lowerSearchTerm)) ||
       (item.notes && item.notes.toLowerCase().includes(lowerSearchTerm)) ||
-      format(item.dateTime, "PPP p").toLowerCase().includes(lowerSearchTerm)
+      `${format(item.date, "PPP")} ${item.startTime} - ${item.endTime}`.toLowerCase().includes(lowerSearchTerm)
     );
   }, [appointments, appointmentSearchTerm]);
 
@@ -225,18 +225,17 @@ export function AppointmentDataTableClient() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[20%]">Title</TableHead>
-                  <TableHead className="w-[20%]"><User className="inline-block h-4 w-4 mr-1" />Client Name</TableHead>
+                  <TableHead className="w-[15%]"><User className="inline-block h-4 w-4 mr-1" />Client</TableHead>
                   <TableHead className="w-[15%]"><Phone className="inline-block h-4 w-4 mr-1" />Phone</TableHead>
-                  <TableHead className="w-[15%]">Date & Time</TableHead>
+                  <TableHead className="w-[20%]"><Clock className="inline-block h-4 w-4 mr-1" />Date & Time</TableHead>
                   <TableHead className="w-[15%]">Location</TableHead>
-                  <TableHead className="w-[15%]">Notes</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoadingData ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="h-24 text-center">
+                    <TableCell colSpan={6} className="h-24 text-center">
                       <div className="flex justify-center items-center">
                         <Loader2 className="h-6 w-6 animate-spin text-primary mr-2" />
                         Loading appointments...
@@ -249,9 +248,8 @@ export function AppointmentDataTableClient() {
                       <TableCell className="font-medium align-top">{item.title}</TableCell>
                       <TableCell className="align-top">{item.name}</TableCell>
                       <TableCell className="align-top">{item.phoneNumber}</TableCell>
-                      <TableCell className="align-top">{format(item.dateTime, "PPP p")}</TableCell>
+                      <TableCell className="align-top">{`${format(item.date, "PPP")} | ${item.startTime} - ${item.endTime}`}</TableCell>
                       <TableCell className="align-top whitespace-pre-wrap">{item.location || '-'}</TableCell>
-                      <TableCell className="align-top whitespace-pre-wrap">{item.notes || '-'}</TableCell>
                       <TableCell className="text-right align-top">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -274,7 +272,7 @@ export function AppointmentDataTableClient() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
+                    <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
                       {appointmentSearchTerm ? "No results found for your search." : "No appointments scheduled. Add new appointments to get started."}
                     </TableCell>
                   </TableRow>

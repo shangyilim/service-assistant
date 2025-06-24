@@ -1,10 +1,19 @@
 
 import { type NextRequest, NextResponse } from 'next/server';
 import twilio from 'twilio';
-import { interpretMessage, type InterpretationResult } from '@/ai/flows/interpret-message-flow';
-import { lookupFaqTool, type LookupFaqInput, type LookupFaqOutput } from '@/ai/tools/lookup-tools';
-import { lookupServiceTool, type LookupServiceInput, type LookupServiceOutput } from '@/ai/tools/lookup-tools';
-import type { FaqItem, ServiceItem } from '@/types';
+
+
+import { getFirestore } from "firebase-admin/firestore";
+
+import {ai} from '@/ai/genkit';
+import { RtdbSessionStore } from '@/ai/examples/rtdbSessionStore';
+import { routingAgent } from '@/ai/examples/routingAgent';
+import { getFirebaseAdminApp } from '@/ai/firebase-service';
+import { Lectern } from 'lucide-react';
+import { AgentState } from '@/ai/examples/types';
+import { GenerateResponse, Message, MessageData, ToolRequestPart } from 'genkit/beta';
+import { attendanceAgent } from '@/ai/examples/attendenceAgent';
+import { appointmentAgent } from '@/ai/examples/appointmentAgent';
 
 // Ensure TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN are set in environment variables
 const twilioAccountSid = process.env.TWILIO_ACCOUNT_SID;
@@ -17,6 +26,8 @@ if (!twilioAccountSid || !twilioAuthToken) {
 }
 
 const twilioClient = twilio(twilioAccountSid, twilioAuthToken);
+
+
 
 /**
  * Handles POST requests for inbound Twilio WhatsApp messages.
@@ -53,68 +64,45 @@ export async function POST(request: NextRequest) {
       return new NextResponse(twiml.toString(), { headers: { 'Content-Type': 'text/xml' }, status: 200 });
     }
 
-    const interpretation: InterpretationResult = await interpretMessage({ userMessage });
-    console.log('Message Interpretation Result:', { interpretation });
-
-    let replyText = "";
-
-    switch (interpretation.action) {
-      case 'lookupFaq':
-        if (interpretation.query) {
-          const faqResults: LookupFaqOutput = await lookupFaqTool({ query: interpretation.query });
-          if (faqResults && faqResults.length > 0) {
-            replyText = "Here's what I found related to your question:\n\n";
-            faqResults.slice(0, 3).forEach(faq => { // Limit to 3 FAQs for brevity
-              replyText += `Q: ${faq.question}\nA: ${faq.answer}\n\n`;
-            });
-          } else {
-            replyText = interpretation.responseText || `Sorry, I couldn't find an FAQ matching "${interpretation.query}".`;
-          }
-        } else {
-          replyText = interpretation.responseText || "I can look that up for you, but what specifically are you asking about?";
-        }
-        break;
-
-      case 'lookupServiceGeneric':
-        const genericServiceResults: LookupServiceOutput = await lookupServiceTool({ queryType: 'GENERIC' });
-        if (genericServiceResults && genericServiceResults.length > 0) {
-          replyText = "Here are the services we offer:\n";
-          genericServiceResults.forEach(service => {
-            replyText += `- ${service.name}\n`;
-          });
-        } else {
-          replyText = interpretation.responseText || "We currently don't have any services listed. Please check back later!";
-        }
-        break;
-
-      case 'lookupServiceSpecific':
-        if (interpretation.query) {
-          const specificServiceResults: LookupServiceOutput = await lookupServiceTool({ queryType: 'SPECIFIC', query: interpretation.query });
-          if (specificServiceResults && specificServiceResults.length > 0) {
-            replyText = `Regarding "${interpretation.query}", here's what I found:\n\n`;
-            specificServiceResults.slice(0, 3).forEach(service => { // Limit to 3 services
-              replyText += `${service.name}: ${service.description}\nAvailable: ${service.availability ? 'Yes' : 'No'}\n\n`;
-            });
-          } else {
-            replyText = interpretation.responseText || `Sorry, I couldn't find a service matching "${interpretation.query}".`;
-          }
-        } else {
-          replyText = interpretation.responseText || "I can look up a specific service for you, but which service are you interested in?";
-        }
-        break;
-
-      case 'directResponse':
-        replyText = interpretation.responseText || "Got it!";
-        break;
-
-      case 'unclear':
-      default:
-        replyText = interpretation.responseText || "I'm sorry, I didn't quite understand that. Could you please rephrase your question?";
-        break;
+    if(!from){
+      throw new Error('from is missing');
     }
 
+    const sessionStore = new RtdbSessionStore();
+    const {sessionId, exist} = await getUserSessionId(from);
+    console.log('sessionId', sessionId, exist);
+    
+    let session;
+
+    if(exist){
+      session = await ai.loadSession(sessionId, {
+        store: sessionStore,
+      });
+    }
+    else{
+      console.log('session not found, creating new');
+      session = ai.createSession({
+        sessionId: sessionId,
+        store: sessionStore,
+        initialState: {
+          userId: from,
+          phoneNumber: from.replace('whatsapp:', ""),
+        } as AgentState
+      })
+    }
+
+
+    const chat = session.chat(routingAgent)
+
+    const response  = await chat.send(userMessage);
+
+
+    const startMessageCount = chat.messages.length;
+    handleChatResponse(response,startMessageCount);
+
+    const replyText = response.text;
     console.log('replytext', replyText);
-    twiml.message(replyText.trim());
+    // twiml.message(replyText.trim());
     return new NextResponse(twiml.toString(), { 
       status: 200, 
       headers: { 'Content-Type': 'text/xml' } 
@@ -190,4 +178,47 @@ async function validateTwilioRequest(request: NextRequest, formData: FormData): 
     console.log('Twilio request signature validated successfully.');
   }
   return isValid;
+}
+
+async function getUserSessionId(userId: string){
+  
+  const adminApp = getFirebaseAdminApp();
+  const db = getFirestore(adminApp);
+
+  const customerRef = db.collection('customers').doc(userId);
+  const customerDoc = await customerRef.get();
+  const sessionId = customerDoc.data()?.sessionId;
+  if (sessionId) {
+    return {sessionId, exist: true};
+  } else {
+    const newSessionId = crypto.randomUUID();
+    await customerRef.set({
+      sessionId:newSessionId 
+    }, {merge: true})
+    return {sessionId: newSessionId, exist: false};
+  }
+}
+
+
+// Process and display the chat response stream
+function handleChatResponse(
+ response: GenerateResponse<any>,
+  startMessageCount: number
+) {
+
+  // Extract and display tools used
+  const toolsUsed = response.messages
+    //.slice(startMessageCount)
+    .filter((m: MessageData) => m.role === 'model')
+    .flatMap((m: MessageData) =>
+      m.content
+        .filter((p) => !!p.toolRequest)
+        .map(
+          (p) =>
+            `${p.toolRequest?.name}(${JSON.stringify(p.toolRequest?.input)})`
+        )
+    )
+    .filter((t) => !!t);
+
+  console.log('\nTools Used:', toolsUsed);
 }

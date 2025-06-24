@@ -1,28 +1,24 @@
 
 'use server';
 
-import { initializeApp, getApps, getApp as getAdminApp, type App } from 'firebase-admin/app';
+
 import { getFirestore, type Firestore, FieldValue } from 'firebase-admin/firestore';
 import { generateEmbedding } from "@/ai/flows/generate-embedding-flow";
 import type { ServiceItemFormValues } from "@/lib/schemas";
 import type { ServiceItem } from "@/types";
+import { getFirebaseAdminApp } from '@/ai/firebase-service';
 
-// Initialize Firebase Admin SDK
-let adminApp: App;
-let adminDb: Firestore;
 
-if (!getApps().length) {
-  adminApp = initializeApp(); // Uses GOOGLE_APPLICATION_CREDENTIALS by default
-} else {
-  adminApp = getAdminApp();
-}
-adminDb = getFirestore(adminApp);
 
 export async function createOrUpdateServiceWithEmbedding(
   formValues: ServiceItemFormValues,
   userId: string,
   existingItemId?: string
 ): Promise<{ success: boolean; message: string; serviceId?: string }> {
+
+  const adminApp = getFirebaseAdminApp();
+  const adminDb = getFirestore(adminApp);
+  
   const servicesCollectionRef = adminDb.collection("services");
   let docRefToUpdatePath: string | undefined;
 

@@ -4,16 +4,13 @@
  */
 
 import { defineFirestoreRetriever } from '@genkit-ai/firebase';
-import { initializeApp, getApps, getApp as getAdminApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { ai } from '@/ai/genkit';
 import type { ServiceItem } from '@/types';
+import { getFirebaseAdminApp } from '../firebase-service';
 
-// Ensure Firebase Admin is initialized only once
-if (!getApps().length) {
-  initializeApp();
-}
-const firestore = getFirestore(getAdminApp());
+const adminApp = getFirebaseAdminApp();
+const firestore = getFirestore(adminApp);
 
 export const serviceRetriever = defineFirestoreRetriever(ai, {
   name: 'serviceRetriever',

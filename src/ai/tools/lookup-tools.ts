@@ -9,21 +9,11 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
-import { initializeApp, getApps, getApp as getAdminApp, type App } from 'firebase-admin/app';
 import { getFirestore, type Firestore } from 'firebase-admin/firestore';
 import type { FaqItem, ServiceItem } from '@/types';
 import { serviceRetriever } from '../retrievers/service-retriever'; // Import the Genkit retriever
+import { getFirebaseAdminApp } from '../firebase-service';
 
-// Initialize Firebase Admin SDK
-let adminApp: App;
-let adminDb: Firestore;
-
-if (!getApps().length) {
-  adminApp = initializeApp(); // Uses GOOGLE_APPLICATION_CREDENTIALS by default
-} else {
-  adminApp = getAdminApp();
-}
-adminDb = getFirestore(adminApp);
 
 // Schema for FAQ Item - used in tool output
 const FaqItemZodSchema = z.object({
@@ -49,6 +39,9 @@ export const lookupFaqTool = ai.defineTool(
     outputSchema: LookupFaqOutputSchema,
   },
   async (input) => {
+    const adminApp = getFirebaseAdminApp();
+    const adminDb = getFirestore(adminApp);
+
     console.log('lookupFaqTool input:', input);
     if (!input.query || input.query.trim() === "") {
       console.warn("FAQ lookup called with empty query. Returning empty array.");
@@ -97,14 +90,19 @@ export type LookupServiceOutput = z.infer<typeof LookupServiceOutputSchema>;
 export const lookupServiceTool = ai.defineTool(
   {
     name: 'lookupServiceTool',
-    description: "Looks up available services. Use GENERIC queryType to list all services. Use SPECIFIC with a query to find particular services using vector search based on the service's embedding.",
+    description: "Use this when the customer asks for services or a specific service. Looks up available services. Use GENERIC queryType to list all services. Use SPECIFIC with a query to find particular services using vector search based on the service's embedding.",
     inputSchema: LookupServiceInputSchema,
     outputSchema: LookupServiceOutputSchema,
   },
   async (input) => {
     console.log('lookupServiceTool input:', input);
     
+
     try {
+
+    const adminApp = getFirebaseAdminApp();
+    const adminDb = getFirestore(adminApp);
+
       if (input.queryType === 'GENERIC') {
         console.log('Performing GENERIC lookup for all available services using Admin SDK.');
         const servicesCollectionRef = adminDb.collection('services');
@@ -117,7 +115,6 @@ export const lookupServiceTool = ai.defineTool(
             name: data.name,
             description: data.description,
             availability: data.availability,
-            userId: data.userId,
           } as ServiceItem;
         });
         console.log(`Found ${services.length} generic services using Admin SDK.`);
@@ -154,7 +151,6 @@ export const lookupServiceTool = ai.defineTool(
               name: data.name,
               description: data.description,
               availability: true,
-              userId: data.userId,
             } as ServiceItem;
           });
 

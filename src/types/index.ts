@@ -25,14 +25,15 @@ export interface FaqItem {
 export interface AppointmentItem {
   id: string;
   title: string;
-  name: string;
+  name?: string;
   phoneNumber: string;
   date: Date;
-  startTime: string; // e.g., "14:00"
-  endTime: string; // e.g., "15:00"
+  startTime: Date; // e.g., "14:00"
+  endTime: Date; // e.g., "15:00"
   location?: string;
   notes?: string;
   userId?: string;
+  temporary?: boolean;
 }
 
 export interface ServiceItem {

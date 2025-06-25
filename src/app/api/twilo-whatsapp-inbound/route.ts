@@ -99,9 +99,13 @@ export async function POST(request: NextRequest) {
 
     const startMessageCount = chat.messages.length;
     handleChatResponse(response,startMessageCount);
-
     const replyText = response.text;
     console.log('replytext', replyText);
+
+    if(!replyText){
+
+    console.log('response',JSON.stringify(response));
+    }
     // twiml.message(replyText.trim());
     return new NextResponse(twiml.toString(), { 
       status: 200, 
@@ -115,18 +119,18 @@ export async function POST(request: NextRequest) {
     }
     console.error('Error processing Twilio webhook:', errorMessage, error);
     
-    // Send a generic error message via TwiML if possible
-    try {
-      twiml.message('Sorry, something went wrong on our end. Please try again later.');
-      return new NextResponse(twiml.toString(), { 
-        status: 200, // Twilio expects 200 for TwiML, even on app error
-        headers: { 'Content-Type': 'text/xml' } 
-      });
-    } catch (twimlError) {
-      console.error('Error generating TwiML error response:', twimlError);
-      // Fallback to JSON error if TwiML itself fails
-      return NextResponse.json({ error: 'Internal server error during webhook processing and TwiML generation.' }, { status: 500 });
-    }
+    // // Send a generic error message via TwiML if possible
+    // try {
+    //   twiml.message('Sorry, something went wrong on our end. Please try again later.');
+    //   return new NextResponse(twiml.toString(), { 
+    //     status: 200, // Twilio expects 200 for TwiML, even on app error
+    //     headers: { 'Content-Type': 'text/xml' } 
+    //   });
+    // } catch (twimlError) {
+    //   console.error('Error generating TwiML error response:', twimlError);
+    //   // Fallback to JSON error if TwiML itself fails
+    //   return NextResponse.json({ error: 'Internal server error during webhook processing and TwiML generation.' }, { status: 500 });
+    // }
   }
 }
 

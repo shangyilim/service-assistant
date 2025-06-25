@@ -10,7 +10,8 @@ import {
   signInWithRedirect, // Changed from signInWithPopup
   GoogleAuthProvider, 
   signOut as firebaseSignOut, // Renamed to avoid conflict
-  type User as FirebaseUser // Type for Firebase user object
+  type User as FirebaseUser, // Type for Firebase user object
+  signInWithPopup
 } from 'firebase/auth';
 
 interface AuthContextType {
@@ -52,7 +53,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const provider = new GoogleAuthProvider();
     try {
       // Using signInWithRedirect instead of signInWithPopup
-      await signInWithRedirect(auth, provider);
+      await signInWithPopup(auth, provider);
       // After signInWithRedirect, the page will redirect to Google's sign-in page.
       // Firebase handles the redirect result automatically, and onAuthStateChanged 
       // will pick up the user session once the redirect completes.

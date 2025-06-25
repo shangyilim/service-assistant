@@ -19,8 +19,9 @@ import { ai } from '@/ai/genkit';
 import { EXAMPLE_EVENTS, EXAMPLE_GRADES, getUpcomingHolidays } from './data';
 
 import type { AgentState } from './types';
-import { getFirestore, type Firestore } from 'firebase-admin/firestore';
+import { getFirestore, Timestamp, type Firestore } from 'firebase-admin/firestore';
 import { getFirebaseAdminApp } from '../firebase-service';
+import { AppointmentItem } from '@/types';
 
 
 export const searchEvents = ai.defineTool(
@@ -126,14 +127,48 @@ export const checkAppointmentAvailability = ai.defineTool(
       service: z.string().optional().describe('the service for the appointment'),
       date: z
         .string().optional()
-        .describe('date of the appointment in YYYY-MM-DD, or as relative time such as tomorrow, next wednesday, day after tomorrow, following friday and resolve this into YYYY-MM-DD based on today date'),
+        .describe('date of the appointment in YYYY-MM-DD'),
       time: z.string().optional().describe('time of the appointment in HH:mm'),
     }),
   },
   async ({ service, date, time }) => {
 
+    console.log('service', service, 'date', date, 'time', time);
+    
+    const app = getFirebaseAdminApp();
+    const firestore: Firestore = getFirestore(app);
+    const appointmentsCollectionRef = firestore.collection('appointments');
 
-    return true;
+    const dateTime = new Date(`${date}T${time}`);
+    const startTime = Timestamp.fromDate(dateTime);
+    const endTime = Timestamp.fromDate(new Date(dateTime.getTime() + 60 * 60000)); // Assume 60-minute appointments
+
+    const querySnapshot = await appointmentsCollectionRef
+      .where('date', '==', Timestamp.fromDate(new Date(`${date}`)))
+      .where('startTime', '<', endTime)
+      .where('endTime', '>', startTime)
+      .get();
+
+    if (!querySnapshot.empty) {
+      return {available: false}; // There is an overlapping appointment
+    }
+
+    const customerState = ai.currentSession<AgentState>().state;
+    const appointmentRef = appointmentsCollectionRef.doc();
+
+    const appointment = {
+      title: service,
+      temporary: true,
+      phoneNumber: customerState?.phoneNumber,
+      date: new Date(`${date}`),
+      startTime: startTime,
+      endTime: endTime,
+      userId: customerState?.userId,
+    };
+
+    await appointmentRef.create(appointment);
+
+    return {available: true, appointmentId: appointmentRef.id}
   }
 );
 
@@ -143,7 +178,7 @@ export const makeAppointment = ai.defineTool(
     name: 'makeAppointment',
     description: 'Ensure that checkAppointment is called first for the selected date and time. creates an appointment for a customer. Do not call this tool if you determine all the inputs needed to create an appointment.',
     inputSchema: z.object({
-      available: z.boolean().describe('result of whether the booking is available via the checkAppointmentAvailability tool'),
+      appointmentId: z.string().describe('result of whether the booking is available via the checkAppointmentAvailability tool'),
       customerName: z.string().optional().describe('customer name'),
       service: z.string().optional().describe('the service for the appointment'),
       date: z
@@ -152,10 +187,16 @@ export const makeAppointment = ai.defineTool(
       time: z.string().optional().describe('time of the appointment in HH:mm'),
     }),
   },
-  async ({ customerName, service, date, time }) => {
+  async ({ appointmentId }) => {
 
-    const customer = ai.currentSession<AgentState>().state!
-    console.log('booking appointment for customer',customer.phoneNumber, customerName, 'on', date, 'at', time, 'for service', service);
+    console.log('appointment id', appointmentId);
+    
+    const app = getFirebaseAdminApp();
+    const firestore: Firestore = getFirestore(app);
+    const appointmentRef = firestore.collection('appointments').doc(appointmentId);
+
+    await appointmentRef.update({ temporary: false });
+
 
     return true;
   }

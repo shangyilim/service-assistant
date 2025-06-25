@@ -51,7 +51,6 @@ export function AppointmentFormDialog({ item, onSave, children, open, onOpenChan
       date: undefined,
       startTime: "",
       endTime: "",
-      location: "",
       notes: "",
     },
   });
@@ -61,7 +60,6 @@ export function AppointmentFormDialog({ item, onSave, children, open, onOpenChan
       if (item) {
         form.reset({
           ...item,
-          location: item.location || "",
           notes: item.notes || "",
         });
       } else {
@@ -72,7 +70,6 @@ export function AppointmentFormDialog({ item, onSave, children, open, onOpenChan
           date: undefined,
           startTime: "",
           endTime: "",
-          location: "",
           notes: "",
         });
       }
@@ -208,19 +205,6 @@ export function AppointmentFormDialog({ item, onSave, children, open, onOpenChan
                 )}
               />
             </div>
-            <FormField
-              control={form.control}
-              name="location"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Location (Optional)</FormLabel>
-                  <FormControl>
-                    <Input placeholder="e.g., Conference Room A, Zoom Link" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
             <FormField
               control={form.control}
               name="notes"

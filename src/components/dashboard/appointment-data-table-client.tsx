@@ -192,7 +192,6 @@ export function AppointmentDataTableClient() {
       item.title.toLowerCase().includes(lowerSearchTerm) ||
       (item.name && item.name.toLowerCase().includes(lowerSearchTerm)) ||
       item.phoneNumber.toLowerCase().includes(lowerSearchTerm) ||
-      (item.location && item.location.toLowerCase().includes(lowerSearchTerm)) ||
       (item.notes && item.notes.toLowerCase().includes(lowerSearchTerm)) ||
       `${format(item.date, "PPP")} ${item.startTime} - ${item.endTime}`.toLowerCase().includes(lowerSearchTerm)
     );
@@ -245,18 +244,17 @@ export function AppointmentDataTableClient() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[20%]">Title</TableHead>
-                  <TableHead className="w-[15%]"><User className="inline-block h-4 w-4 mr-1" />Client</TableHead>
+                  <TableHead className="w-[25%]">Title</TableHead>
+                  <TableHead className="w-[20%]"><User className="inline-block h-4 w-4 mr-1" />Client</TableHead>
                   <TableHead className="w-[15%]"><Phone className="inline-block h-4 w-4 mr-1" />Phone</TableHead>
-                  <TableHead className="w-[20%]"><Clock className="inline-block h-4 w-4 mr-1" />Date & Time</TableHead>
-                  <TableHead className="w-[15%]">Location</TableHead>
-                  <TableHead>Actions</TableHead>
+                  <TableHead className="w-[25%]"><Clock className="inline-block h-4 w-4 mr-1" />Date & Time</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoadingData ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="h-24 text-center">
+                    <TableCell colSpan={5} className="h-24 text-center">
                       <div className="flex justify-center items-center">
                         <Loader2 className="h-6 w-6 animate-spin text-primary mr-2" />
                         Loading appointments...
@@ -270,7 +268,6 @@ export function AppointmentDataTableClient() {
                       <TableCell className="align-top">{item.name}</TableCell>
                       <TableCell className="align-top">{item.phoneNumber}</TableCell>
                       <TableCell className="align-top">{`${format(item.date, "PPP")} | ${item.startTime} - ${item.endTime}`}</TableCell>
-                      <TableCell className="align-top whitespace-pre-wrap">{item.location || '-'}</TableCell>
                       <TableCell className="text-right align-top">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -293,7 +290,7 @@ export function AppointmentDataTableClient() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+                    <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
                       {appointmentSearchTerm ? "No results found for your search." : "No appointments scheduled. Add new appointments to get started."}
                     </TableCell>
                   </TableRow>

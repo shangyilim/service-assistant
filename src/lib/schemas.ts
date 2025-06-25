@@ -30,7 +30,6 @@ export const AppointmentItemSchema = z.object({
   }),
   startTime: z.string().regex(timeRegex, { message: "Invalid start time format. Use HH:MM." }),
   endTime: z.string().regex(timeRegex, { message: "Invalid end time format. Use HH:MM." }),
-  location: z.string().max(100, { message: "Location must be 100 characters or less." }).optional().or(z.literal('')),
   notes: z.string().max(1000, { message: "Notes must be 1000 characters or less." }).optional().or(z.literal('')),
 }).refine(data => data.endTime > data.startTime, {
   message: "End time must be after start time.",

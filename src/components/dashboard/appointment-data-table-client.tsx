@@ -61,7 +61,6 @@ export function AppointmentDataTableClient() {
   const { user, loading: authLoading } = useAuth();
 
   const appointmentsCollectionRef = useMemo(() => {
-    // Point to the top-level 'appointments' collection
     return collection(db, "appointments");
   }, []);
 
@@ -73,19 +72,28 @@ export function AppointmentDataTableClient() {
     }
 
     setIsLoadingData(true);
-    // This query will now fetch all appointments from the top-level collection.
-    // If you need to filter by user, you would add a where clause like:
-    // where("userId", "==", user.id)
     const q = query(appointmentsCollectionRef, orderBy("date"));
     const unsubscribe = onSnapshot(q, 
       (querySnapshot) => {
         const items = querySnapshot.docs.map(doc => {
           const data = doc.data();
+          
+          const formatTime = (timeValue: any): string => {
+            if (!timeValue) return "";
+            // Check if it's a Firestore Timestamp
+            if (typeof timeValue.toDate === 'function') {
+              return format(timeValue.toDate(), "HH:mm");
+            }
+            // Assume it's already a string if not a Timestamp
+            return String(timeValue);
+          };
+
           return {
             id: doc.id,
             ...data,
-            // Firestore timestamps need to be converted to JS Date objects
             date: (data.date as Timestamp).toDate(),
+            startTime: formatTime(data.startTime),
+            endTime: formatTime(data.endTime),
           } as AppointmentItem;
         });
         setAppointments(items);
@@ -107,10 +115,23 @@ export function AppointmentDataTableClient() {
       return;
     }
 
-    // The date is already a Date object from the form
+    // Combine date and time strings into full Date objects for Firestore
+    const { date, startTime, endTime, ...restOfValues } = formValues;
+
+    const startDate = new Date(date);
+    const [startHours, startMinutes] = startTime.split(':').map(Number);
+    startDate.setHours(startHours, startMinutes, 0, 0);
+
+    const endDate = new Date(date);
+    const [endHours, endMinutes] = endTime.split(':').map(Number);
+    endDate.setHours(endHours, endMinutes, 0, 0);
+    
     const dataToSave = {
-      ...formValues,
+      ...restOfValues,
+      date, // Keep the original date for date-only queries
       userId: user.id,
+      startTime: startDate, // This will be converted to a Timestamp
+      endTime: endDate,     // This will be converted to a Timestamp
     };
 
     try {
@@ -169,7 +190,7 @@ export function AppointmentDataTableClient() {
     const lowerSearchTerm = appointmentSearchTerm.toLowerCase();
     return appointments.filter(item =>
       item.title.toLowerCase().includes(lowerSearchTerm) ||
-      item.name.toLowerCase().includes(lowerSearchTerm) ||
+      (item.name && item.name.toLowerCase().includes(lowerSearchTerm)) ||
       item.phoneNumber.toLowerCase().includes(lowerSearchTerm) ||
       (item.location && item.location.toLowerCase().includes(lowerSearchTerm)) ||
       (item.notes && item.notes.toLowerCase().includes(lowerSearchTerm)) ||

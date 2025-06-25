@@ -28,8 +28,8 @@ export interface AppointmentItem {
   name?: string;
   phoneNumber: string;
   date: Date;
-  startTime: Date; // e.g., "14:00"
-  endTime: Date; // e.g., "15:00"
+  startTime: string; // e.g., "14:00"
+  endTime: string; // e.g., "15:00"
   location?: string;
   notes?: string;
   userId?: string;

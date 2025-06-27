@@ -7,7 +7,7 @@ export function getFirebaseAdminApp(){
 
     if (!getApps().length) {
         adminApp = initializeApp({
-            databaseURL: "https://data-weaver-s5c6o-default-rtdb.firebaseio.com"
+            databaseURL: process.env.FIREBASE_DATABASE_URL
         }); // Uses GOOGLE_APPLICATION_CREDENTIALS by default
     } else {
         adminApp = getAdminApp();

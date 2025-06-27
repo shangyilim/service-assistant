@@ -2,7 +2,7 @@
 'use server';
 
 
-import { getFirestore, type Firestore, FieldValue } from 'firebase-admin/firestore';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { generateEmbedding } from "@/ai/flows/generate-embedding-flow";
 import type { FaqItemFormValues } from "@/lib/schemas";
 import type { FaqItem } from "@/types";

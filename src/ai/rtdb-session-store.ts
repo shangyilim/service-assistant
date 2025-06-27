@@ -1,7 +1,7 @@
 import { SessionData, SessionStore } from "genkit/beta";
 import { getApp as getAdminApp } from 'firebase-admin/app';
 import { getDatabase } from "firebase-admin/database";
-import { getFirebaseAdminApp } from "../firebase-service";
+import { getFirebaseAdminApp } from "./firebase-service";
 
 export class RtdbSessionStore<S = any> implements SessionStore<S> {
   async get(sessionId: string): Promise<SessionData<S> | undefined> {
@@ -13,7 +13,6 @@ export class RtdbSessionStore<S = any> implements SessionStore<S> {
       const rtdb = getDatabase(adminApp);
       
       const data = (await rtdb.ref(`sessions/${sessionId}`).get()).val(); 
-      console.log('data',data);
       console.log('session exist?', data ? 'yes':'no');
       return data;
     
@@ -26,7 +25,13 @@ export class RtdbSessionStore<S = any> implements SessionStore<S> {
     const rtdb = getDatabase(adminApp);
     
     await rtdb.ref(`sessions/${sessionId}`).set(sessionData);
-
   }
 
+  async delete(sessionId: string): Promise<void> {
+    const adminApp = getFirebaseAdminApp();
+    const rtdb = getDatabase(adminApp);
+    
+    await rtdb.ref(`sessions/${sessionId}`).remove();
+
+  }
 }

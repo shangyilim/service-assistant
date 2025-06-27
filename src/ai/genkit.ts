@@ -1,6 +1,6 @@
 import {genkit} from 'genkit/beta';
 import {googleAI} from '@genkit-ai/googleai';
-import { AgentState } from './examples/types';
+import { AgentSessionState } from './types';
 
 export const ai = genkit({
   plugins: [googleAI()],
@@ -10,7 +10,8 @@ export const ai = genkit({
 
 ai.defineHelper(
   'userContext',
-  (state: AgentState) => `=== Customer Context
+  (state: AgentSessionState) => `=== Customer Context
 
-- The current date and time is: ${new Date().toString()}`
+- The current date and time is: ${new Date().toString()}
+===`
 );

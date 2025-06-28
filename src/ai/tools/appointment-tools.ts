@@ -79,6 +79,8 @@ export const checkAppointmentAvailability = ai.defineTool(
         startTime: startTime,
         endTime: endTime,
         userId: sessionState?.userId,
+        name: sessionState?.name,
+        bookedBy: 'chatbot',
       };
 
       // Create the temporary appointment document in Firestore.
@@ -86,7 +88,7 @@ export const checkAppointmentAvailability = ai.defineTool(
 
       // Return availability status and the ID of the temporary appointment.
       return { available: true, appointmentId: appointmentRef.id }
-    // Catch any errors during the process.
+      // Catch any errors during the process.
     } catch (error) {
       return { available: false, error }
     }
@@ -116,7 +118,7 @@ export const appointmentConfirmation = ai.defineTool(
   async ({ confirmation, appointmentId }) => {
 
     // Check if confirmation is true and appointmentId is provided.
-    if(!confirmation || !appointmentId){
+    if (!confirmation || !appointmentId) {
       return false;
     }
     // Initialize Firebase Admin and Firestore.
@@ -139,10 +141,10 @@ export const appointmentConfirmation = ai.defineTool(
 export const lookupAppointments = ai.defineTool(
   {
     name: 'lookupAppointments',
-    description: 'look up a customers appointments',
+    description: 'list, retrieve all appointments of a customer',
     // The phoneNumber field seems to be required by Genkit internally, even if not used directly.
     inputSchema: z.object({
-      phoneNumber: z.string().optional() // no idea why this is needed by genkit or else it crashes
+      userInput: z.string().optional().describe('the user id which can be gotten from the state') // no idea why this is needed by genkit or else it crashes
     })
   },
   // The asynchronous function that executes the tool's logic.
@@ -187,45 +189,51 @@ export const modifyAppointment = ai.defineTool(
   // Define the Genkit tool for modifying or canceling an appointment.
   {
     name: 'modifyAppointment',
-    description: 'modify or cancel an appointment',
+    description: 'modify or cancel an appointment. The customer may use relative date terms such as "tomorrow, next week, next month". use this as the hint for the date field',
     inputSchema: z.object({
       appointmentId: z.string().describe('existing appointment to modify or cancel'),
       action: z.enum(['MODIFY', 'CANCEL']).describe("if the customer wants to modify an appointment use MODIFY. If the intention is to cancel it use CANCEL"),
       date: z
         .string().optional()
-        .describe('date of the appointment in YYYY-MM-DD'),
+        .describe('date of the appointment in YYYY-MM-DD. The user may use relative terms such as tomorrow, next week, next month. convert that into YYYY-MM-DD using today date'),
       time: z.string().optional().describe('time of the appointment in HH:mm'),
     }),
+
   },
   // The asynchronous function that executes the tool's logic.
   async ({ appointmentId, action, date, time }) => {
 
-    const app = getFirebaseAdminApp();
-    const firestore: Firestore = getFirestore(app);
-    const appointmentsCollectionRef = firestore.collection('appointments');
+    try {
+      const app = getFirebaseAdminApp();
+      const firestore: Firestore = getFirestore(app);
+      const appointmentsCollectionRef = firestore.collection('appointments');
 
-    // Handle the MODIFY action.
-    if (action === 'MODIFY') {
-      // Parse the new date and time.
-      const dateTime = new Date(`${date}T${time}`);
-      const startTime = Timestamp.fromDate(dateTime);
-      const endTime = Timestamp.fromDate(new Date(dateTime.getTime() + 60 * 60000)); // Assume 60-minute appointments
-      await appointmentsCollectionRef.doc(appointmentId).update({
-        // Update the date, startTime, and endTime fields.
-        date: new Date(`${date}`),
-        startTime: startTime,
-        endTime: endTime,
-      });
+      // Handle the MODIFY action.
+      if (action === 'MODIFY') {
+        // Parse the new date and time.
+        const dateTime = new Date(`${date}T${time}`);
+        const startTime = Timestamp.fromDate(dateTime);
+        const endTime = Timestamp.fromDate(new Date(dateTime.getTime() + 60 * 60000)); // Assume 60-minute appointments
+        await appointmentsCollectionRef.doc(appointmentId).update({
+          // Update the date, startTime, and endTime fields.
+          date: new Date(`${date}`),
+          startTime: startTime,
+          endTime: endTime,
+        });
 
-      return { success: true }
+        return { success: true }
+      }
+      // Handle the CANCEL action.
+      else if (action === 'CANCEL') {
+        await appointmentsCollectionRef.doc(appointmentId).delete();
+        return { success: true }
+      }
+
+    } catch (err) {
+      console.error(err);
+
+      return { success: false, message: 'Something went wrong' };
     }
-    // Handle the CANCEL action.
-    else if (action === 'CANCEL') {
-      await appointmentsCollectionRef.doc(appointmentId).delete();
-      return { success: true }
-    }
-
-    return { success: false, message: 'Something went wrong' };
 
   }
 );

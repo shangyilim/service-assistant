@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Service configuration error.' }, { status: 500 });
   }
 
-  // TO-DO: validate the incoming twilo message
+  // TO-DO: Add validation for incoming twilio messages using validateTwilioRequest
   
   const twiml = new twilio.twiml.MessagingResponse();
 
@@ -49,6 +49,7 @@ export async function POST(request: NextRequest) {
     const profileName = formData.get('ProfileName')?.toString();
 
     console.log(`Received WhatsApp Message from ${profileName} (${from}): "${userMessage}"`);
+    // If the user sends an empty message, send back a default response.
 
     if (!userMessage.trim()) {
       twiml.message("It looks like you sent an empty message. How can I help you?");
@@ -60,6 +61,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { session, clearSession } = await getSession(from);
+    // Load or create a session for the user.
 
 
     const chat = session.chat(routingAgent)
@@ -68,6 +70,7 @@ export async function POST(request: NextRequest) {
 
 
     const startMessageCount = chat.messages.length;
+    // Handle the response from the AI, which might involve tool use or plain text.
     handleChatResponse(response, startMessageCount);
     let replyText = response.text;
 
@@ -89,6 +92,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
+    // Log the error and send an error message back to the user.
     let errorMessage = 'Failed to process webhook';
     if (error instanceof Error) {
       errorMessage = error.message;
@@ -97,7 +101,7 @@ export async function POST(request: NextRequest) {
 
     // Send a generic error message via TwiML if possible
     try {
-      twiml.message('Sorry, something went wrong on our end. Please try again later.');
+    twiml.message('Sorry, something went wrong on our end. Please try again later.');
       return new NextResponse(twiml.toString(), {
         status: 200, // Twilio expects 200 for TwiML, even on app error
         headers: { 'Content-Type': 'text/xml' }
@@ -121,65 +125,36 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({ message: 'Endpoint active. Ready for POST requests.' }, { status: 200 });
 }
 
-async function validateTwilioRequest(request: NextRequest, formData: FormData): Promise<boolean> {
-  const localTwilioAuthToken = process.env.TWILIO_AUTH_TOKEN; // Use the one defined at the top of the file for consistency
-
-  if (!localTwilioAuthToken) {
-    // This was already checked, but for safety within this function's scope
-    console.error('CRITICAL: TWILIO_AUTH_TOKEN is not set. Validation cannot proceed.');
-    // For security, do not inform the client about specific configuration issues.
-    return false;
-  }
-
-  const twilioSignature = request.headers.get('X-Twilio-Signature');
-  if (!twilioSignature) {
-    console.warn('Request received without X-Twilio-Signature header. Invalid.');
-    return false;
-  }
-
-  const requestUrl = request.url;
-  const params: Record<string, string> = {};
-  for (const [key, value] of formData.entries()) {
-    if (typeof value === 'string') {
-      params[key] = value;
-    }
-  }
-
-  const isValid = twilio.validateRequest(
-    localTwilioAuthToken,
-    twilioSignature,
-    requestUrl,
-    params
-  );
-
-  if (!isValid) {
-    console.warn('Invalid Twilio signature. Request will be rejected.');
-  } else {
-    console.log('Twilio request signature validated successfully.');
-  }
-  return isValid;
-}
-
+/**
+ * Retrieves or creates a Firestore document for the user and manages their session ID.
+ * @param from - The 'From' phone number from the Twilio request (e.g., 'whatsapp:+1234567890').
+ * @returns An object containing the session ID, whether a session existed, and the customer data.
+ */
 async function getUserSessionInfo(from: string) {
-
+  // Get the Firestore database instance using the Firebase Admin SDK app.
   const db = getFirestore(getFirebaseAdminApp());
 
+  // Fetch the customer document.
   const customerRef = db.collection('customers').doc(from);
   const customerDoc = await customerRef.get();
   const existingCustomer =  customerDoc.data();
 
+  // Check if a session ID already exists in the customer data.
   const existingSessionIdExists =  !!existingCustomer?.sessionId;
 
   console.log('existingCustomer.sessionId', existingCustomer?.sessionId);
 
+  // Generate a new UUID for a potential new session.
   const newSessionId = crypto.randomUUID();
 
+  // Prepare the updated customer data.
   const updatedCustomer = {
     sessionId: existingCustomer?.sessionId ?? newSessionId,
     phoneNumber: existingCustomer?.phoneNumber ?? from.replace('whatsapp:', ""),
     name: existingCustomer?.name ??'',
   }
 
+  // Update the updated customer data back into the Firestore document.
   await customerRef.set(updatedCustomer, {merge: true});
 
   return {
@@ -189,27 +164,37 @@ async function getUserSessionInfo(from: string) {
   }
 
 }
-
-
-
+/**
+ * Gets or creates a Genkit session for the given user.
+ * @param from - The user's identifier (Twilio 'From' number).
+ * @returns An object containing the Genkit session and a function to clear the session.
+ */
 async function getSession(from: string) {
-
-
+  // Get business information, which might be needed by some of the tools.
   const businessInfo = await getBusinessInfo();
+
+  // Get user session information, including their existing session ID if any,
+  // and customer details.
   const { sessionId, exist, customer } = await getUserSessionInfo(from);
 
   console.log('sessionId', sessionId, 'exist', exist, 'user', customer);
 
+  // Initialize a session store (e.g., using Firebase Realtime Database).
   const sessionStore = new RtdbSessionStore();
   let session;
 
+  // Check if a session with the retrieved sessionId already exists.
   if (exist) {
+    // If it exists, load the existing session from the store.
     session = await ai.loadSession(sessionId, {
       store: sessionStore,
     });
   }
   else {
     console.log('session not found, creating new');
+
+    // Create a new session with the generated sessionId and store.
+    // Provide initial state 
     session = ai.createSession<AgentSessionState>({
       sessionId: sessionId,
       store: sessionStore,
@@ -223,10 +208,16 @@ async function getSession(from: string) {
   }
   return {
     session,
+    // Provide a utility function to clear the session from the store.
     clearSession: () =>
       sessionStore.delete(sessionId)
   };
 }
+
+/**
+ * Retrieves business information from the Firebase Realtime Database.
+ * @returns A promise resolving to the BusinessInfo object.
+ */
 
 async function getBusinessInfo() {
   const adminApp = getFirebaseAdminApp();

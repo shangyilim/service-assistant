@@ -1,6 +1,6 @@
 # Multi Agent Business Service Assistant Chatbot
 
-This is a Multi-Agent business service assistant WhatsApp chatbot project built with NextJS in Firebase Studio, and uses Twilio communicate with Whatsapp
+This is a Multi-Agent business service assistant WhatsApp chatbot project built with NextJS in Firebase Studio, and uses Twilio communicate with Whatsapp. [Checkout the medium article here](https://medium.com/@shangyilim/part-1-building-a-whatapp-chatbot-service-dashboard-with-firebase-studio-and-genkit-9929326b87e6)
 
 The app has 2 main functionalities:
 
@@ -52,3 +52,27 @@ This RTDB-based session store allows the chatbot to remember previous turns in a
 ### TL;DR; ###
 
 Essentially, the `routingAgent` acts like a receptionist or dispatcher in the multi-agent system, ensuring that customer requests are directed to the correct "department" (specialized agent or tool) for efficient and accurate handling. This modular approach allows for the development of specialized agents that are experts in specific domains (like appointments) while keeping the initial routing logic centralized and manageable.
+
+
+## Setup ##
+You can easily start using by forking this, and import into Firebase Studio. Then follow the following changes:
+1. Create a Firebase project and add a web project.
+2. Modify `src/lib/firebase.ts` to include use your Firebase configuration.
+3. Configure Google Sign in Provider via Firebase Authentication in the Firebase console. 
+4. `npm install` and `npm run start` to start the app.
+5. If you are using Firebase Studio, simply open the default port (should be 9000) as public. This lets you test the webhook integration directly with Twilio
+4. Create a .env file and include your settings and keys:
+
+```
+# your gemini api key
+GEMINI_API_KEY=
+# twilio auth to send and receive messages
+TWILIO_AUTH_TOKEN=
+TWILIO_ACCOUNT_SID=
+# used by the Genkit to do stuff
+GOOGLE_APPLICATION_CREDENTIALS=
+# realtime database url
+FIREBASE_DATABASE_URL=
+```
+
+4. Have fun

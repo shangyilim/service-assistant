@@ -47,3 +47,9 @@ export const ServiceItemSchema = z.object({
 });
 
 export type ServiceItemFormValues = z.infer<typeof ServiceItemSchema>;
+
+export const BusinessProfileSchema = z.object({
+  name: z.string().min(2, "Business name must be at least 2 characters.").max(100, "Business name must be 100 characters or less."),
+});
+
+export type BusinessProfileFormValues = z.infer<typeof BusinessProfileSchema>;

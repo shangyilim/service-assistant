@@ -43,3 +43,14 @@ export interface ServiceItem {
   userId?: string; // ID of the user who created the service
   embedding?: number[] | null | undefined; // For storing generated embeddings
 }
+
+export interface FirestoreCustomer{
+    sessionId?: string;
+    name?: string;
+    phoneNumber?: string;
+}
+export interface BusinessInfo {
+    name?: string;
+    phoneNumber?: string;
+    timezone?: string;
+}

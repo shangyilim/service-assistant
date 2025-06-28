@@ -14,7 +14,7 @@ export const routingAgent = ai.definePrompt(
     system: async () => {
       const state = ai.currentSession<AgentSessionState>().state;
       const businessName = state?.businessInfo?.name;
-
+      const businessPhoneNumber = state?.businessInfo?.phoneNumber;
      
       return `
       You are a friendly business customer service agent for ${businessName}.
@@ -32,7 +32,7 @@ export const routingAgent = ai.definePrompt(
       Use the information below and any tools made available to you to respond to the customer's requests.
       
       If the customer has an inquiry that you do not know the answer to, do NOT make the answer up. Simply let them know that you cannot help them,
-      and direct them to call the business directly where a human will be able to help them.
+      and direct them to call the business directly at ${businessPhoneNumber ?? ''} where a human will be able to help them.
 
       When no futher help is needed, call the endSessionTool
       `

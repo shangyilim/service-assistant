@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useEffect, useState } from 'react';
@@ -13,26 +14,32 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Loader2, Building2 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import moment from 'moment-timezone';
 
 export function BusinessProfileForm() {
   const [loading, setLoading] = useState(true);
+  const [timezones, setTimezones] = useState<string[]>([]);
   const { toast } = useToast();
   
   const form = useForm<BusinessProfileFormValues>({
     resolver: zodResolver(BusinessProfileSchema),
     defaultValues: {
       name: '',
+      timezone: '',
     },
   });
   
   useEffect(() => {
+    setTimezones(moment.tz.names());
+
     const rtdb = getDatabase(app);
     const businessInfoRef = ref(rtdb, 'businessInfo');
     
     const unsubscribe = onValue(businessInfoRef, (snapshot) => {
       const data = snapshot.val() as BusinessInfo | null;
-      if (data?.name) {
-        form.reset({ name: data.name });
+      if (data) {
+        form.reset({ name: data.name || '', timezone: data.timezone || '' });
       }
       setLoading(false);
     }, (error) => {
@@ -52,7 +59,7 @@ export function BusinessProfileForm() {
     try {
       const rtdb = getDatabase(app);
       const businessInfoRef = ref(rtdb, 'businessInfo');
-      await update(businessInfoRef, { name: values.name });
+      await update(businessInfoRef, { name: values.name, timezone: values.timezone });
       toast({
         title: "Success",
         description: "Business profile updated successfully.",
@@ -84,7 +91,7 @@ export function BusinessProfileForm() {
           <CardTitle className="text-2xl font-headline">Business Profile</CardTitle>
         </div>
         <CardDescription>
-          This information is used by the AI assistant to identify your business to customers.
+          This information is used by the AI assistant to identify your business and handle time-sensitive requests correctly.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -99,6 +106,30 @@ export function BusinessProfileForm() {
                   <FormControl>
                     <Input placeholder="Your Company Name" {...field} />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="timezone"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Timezone</FormLabel>
+                   <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a timezone" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {timezones.map((tz) => (
+                        <SelectItem key={tz} value={tz}>
+                          {tz}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}

@@ -26,6 +26,7 @@ export function BusinessProfileForm() {
     resolver: zodResolver(BusinessProfileSchema),
     defaultValues: {
       name: '',
+      phoneNumber: '',
       timezone: '',
     },
   });
@@ -39,7 +40,11 @@ export function BusinessProfileForm() {
     const unsubscribe = onValue(businessInfoRef, (snapshot) => {
       const data = snapshot.val() as BusinessInfo | null;
       if (data) {
-        form.reset({ name: data.name || '', timezone: data.timezone || '' });
+        form.reset({
+          name: data.name || '',
+          phoneNumber: data.phoneNumber || '',
+          timezone: data.timezone || ''
+        });
       }
       setLoading(false);
     }, (error) => {
@@ -59,7 +64,11 @@ export function BusinessProfileForm() {
     try {
       const rtdb = getDatabase(app);
       const businessInfoRef = ref(rtdb, 'businessInfo');
-      await update(businessInfoRef, { name: values.name, timezone: values.timezone });
+      await update(businessInfoRef, {
+        name: values.name,
+        phoneNumber: values.phoneNumber,
+        timezone: values.timezone
+      });
       toast({
         title: "Success",
         description: "Business profile updated successfully.",
@@ -105,6 +114,19 @@ export function BusinessProfileForm() {
                   <FormLabel>Business Name</FormLabel>
                   <FormControl>
                     <Input placeholder="Your Company Name" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+             <FormField
+              control={form.control}
+              name="phoneNumber"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Business Phone Number</FormLabel>
+                  <FormControl>
+                    <Input placeholder="e.g. +1 555-123-4567" {...field} value={field.value ?? ''} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

@@ -50,6 +50,7 @@ export type ServiceItemFormValues = z.infer<typeof ServiceItemSchema>;
 
 export const BusinessProfileSchema = z.object({
   name: z.string().min(2, "Business name must be at least 2 characters.").max(100, "Business name must be 100 characters or less."),
+  phoneNumber: z.string().min(10, "Please enter a valid phone number.").max(20, "Phone number is too long.").optional().or(z.literal('')),
   timezone: z.string().min(1, { message: "Timezone is required." }),
 });
 
